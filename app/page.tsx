@@ -1,3 +1,5 @@
+'use client'
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import JsonToCSharpConverter from './components/json-to-csharp-converter'
@@ -5,6 +7,8 @@ import GithubRepoStats from './components/github-repo-stats'
 import DiffTool from './components/diff-tool'
 import ImageSplitTool from './components/image-split-tool'
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Button } from "@/components/ui/button"
+import { X } from "lucide-react"
 
 export default function Dashboard() {
   return (
@@ -12,7 +16,13 @@ export default function Dashboard() {
       <div className="border-b">
         <div className="flex h-16 items-center px-4 justify-between">
           <h1 className="text-3xl font-bold tracking-tight">Toolbox</h1>
-          <ThemeToggle />
+          <div className="flex items-center space-x-4">
+            <ThemeToggle />
+            <Button onClick={() => window.history.back()} variant="outline" size="icon">
+              <X className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </div>
         </div>
       </div>
       <div className="flex-1 space-y-4 p-8 pt-6">
@@ -77,6 +87,9 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
+      <footer className="text-center py-4">
+        &copy; {new Date().getFullYear()} ikws4. All rights reserved.
+      </footer>
     </div>
   )
 }
