@@ -1,101 +1,82 @@
-import Image from "next/image";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import JsonToCSharpConverter from './components/json-to-csharp-converter'
+import GithubRepoStats from './components/github-repo-stats'
+import DiffTool from './components/diff-tool'
+import ImageSplitTool from './components/image-split-tool'
+import { ThemeToggle } from "@/components/theme-toggle"
 
-export default function Home() {
+export default function Dashboard() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/toolbox/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/toolbox/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="flex-col md:flex">
+      <div className="border-b">
+        <div className="flex h-16 items-center px-4 justify-between">
+          <h1 className="text-3xl font-bold tracking-tight">Toolbox</h1>
+          <ThemeToggle />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/toolbox/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/toolbox/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/toolbox/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+      <div className="flex-1 space-y-4 p-8 pt-6">
+        <Tabs defaultValue="json-to-csharp" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="json-to-csharp">JSON to C# Converter</TabsTrigger>
+            <TabsTrigger value="github-stats">GitHub Repo Stats</TabsTrigger>
+            <TabsTrigger value="diff-tool">Diff Tool</TabsTrigger>
+            <TabsTrigger value="image-split">Image Split Tool</TabsTrigger>
+          </TabsList>
+          <TabsContent value="json-to-csharp" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>JSON to C# Converter</CardTitle>
+                <CardDescription>
+                  Convert JSON objects to C# classes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <JsonToCSharpConverter />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="github-stats" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>GitHub Repository Statistics</CardTitle>
+                <CardDescription>
+                  View statistics for a GitHub repository, including stars and recent release downloads
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <GithubRepoStats />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="diff-tool" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Text Comparison Tool</CardTitle>
+                <CardDescription>
+                  Compare two texts and see the differences
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DiffTool />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="image-split" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Image Split Tool</CardTitle>
+                <CardDescription>
+                  Split an image into a specified number of rows and columns
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ImageSplitTool />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
-  );
+  )
 }
