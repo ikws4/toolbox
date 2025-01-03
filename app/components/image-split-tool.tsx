@@ -79,71 +79,71 @@ export default function ImageSplitTool() {
   }
 
   return (
-    <div className="flex space-x-4">
-      <div className="w-3/4 space-y-4">
-      <div {...getRootProps()} className="relative border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:bg-muted/50">
-        <input {...getInputProps()} />
-        {isDragActive ? (
-        <p>Drop the image here ...</p>
-        ) : (
-          image ? (
+    <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 p-4 md:p-8">
+      <div className="md:w-3/4 space-y-4">
+        <div {...getRootProps()} className="relative border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:bg-muted/50">
+          <input {...getInputProps()} />
+          {isDragActive ? (
+            <p>Drop the image here ...</p>
+          ) : (
+            image ? (
+              <>
+                <img src={URL.createObjectURL(image)} alt="Selected" className="max-w-full max-h-48 mx-auto rounded-md" />
+                <p className="text-sm text-muted-foreground mt-2">{image.name}</p>
+              </>
+            ) : (
+              <p>Drag an image here, or click to select an image</p>
+            )
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="rows">Rows</Label>
+            <Input
+              id="rows"
+              type="number"
+              min="1"
+              value={rows}
+              onChange={(e) => setRows(parseInt(e.target.value))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="columns">Columns</Label>
+            <Input
+              id="columns"
+              type="number"
+              min="1"
+              value={columns}
+              onChange={(e) => setColumns(parseInt(e.target.value))}
+            />
+          </div>
+        </div>
+        <Button onClick={splitImage} disabled={!image || processing}>
+          {processing ? (
             <>
-              <img src={URL.createObjectURL(image)} alt="Selected" className="max-w-full max-h-48 mx-auto rounded-md" />
-              <p className="text-sm text-muted-foreground mt-2">{image.name}</p>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing...
             </>
           ) : (
-            <p>Drag an image here, or click to select an image</p>
-          )
+            'Split Image'
+          )}
+        </Button>
+      </div>
+      <div className="md:w-1/4 space-y-4 flex flex-col items-center">
+        {splitImages.length > 0 && (
+          <>
+            <Card className='w-full'>
+              <CardContent className="p-2">
+                <div className={`grid grid-rows-${splitedGridInfo[0]} grid-cols-${splitedGridInfo[1]} gap-1`}>
+                  {splitImages.map((imgUrl, index) => (
+                    <img key={index} src={imgUrl} alt={`Split ${index + 1}`} className="w-full h-auto rounded-md" />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            <Button onClick={downloadZip}>Download Split Images (ZIP)</Button>
+          </>
         )}
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-        <Label htmlFor="rows">Rows</Label>
-        <Input
-          id="rows"
-          type="number"
-          min="1"
-          value={rows}
-          onChange={(e) => setRows(parseInt(e.target.value))}
-        />
-        </div>
-        <div>
-        <Label htmlFor="columns">Columns</Label>
-        <Input
-          id="columns"
-          type="number"
-          min="1"
-          value={columns}
-          onChange={(e) => setColumns(parseInt(e.target.value))}
-        />
-        </div>
-      </div>
-      <Button onClick={splitImage} disabled={!image || processing}>
-        {processing ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Processing...
-        </>
-        ) : (
-        'Split Image'
-        )}
-      </Button>
-      </div>
-      <div className="w-1/4 space-y-4 flex flex-col items-center">
-      {splitImages.length > 0 && (
-        <>
-        <Card className='w-full'>
-          <CardContent className="p-2">
-          <div className={`grid grid-rows-${splitedGridInfo[0]} grid-cols-${splitedGridInfo[1]} gap-1`}>
-            {splitImages.map((imgUrl, index) => (
-            <img key={index} src={imgUrl} alt={`Split ${index + 1}`} className="w-full h-auto rounded-md" />
-            ))}
-          </div>
-          </CardContent>
-        </Card>
-        <Button onClick={downloadZip}>Download Split Images (ZIP)</Button>
-        </>
-      )}
       </div>
     </div>
   )

@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState } from 'react'
@@ -14,7 +13,7 @@ export default function UuidGenerator() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4 md:p-8">
       <Button onClick={generateUuid}>Generate UUID</Button>
       {uuid && (
         <Input
