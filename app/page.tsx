@@ -6,6 +6,7 @@ import JsonToCSharpConverter from './components/json-to-csharp-converter'
 import GithubRepoStats from './components/github-repo-stats'
 import DiffTool from './components/diff-tool'
 import ImageSplitTool from './components/image-split-tool'
+import UuidGenerator from './components/uuid-generator'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
@@ -32,6 +33,7 @@ export default function Dashboard() {
             <TabsTrigger value="github-stats">GitHub Repo Stats</TabsTrigger>
             <TabsTrigger value="diff-tool">Diff Tool</TabsTrigger>
             <TabsTrigger value="image-split">Image Split Tool</TabsTrigger>
+            <TabsTrigger value="uuid-generator">UUID Generator</TabsTrigger>
           </TabsList>
           <TabsContent value="json-to-csharp" className="space-y-4">
             <Card>
@@ -82,6 +84,19 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <ImageSplitTool />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="uuid-generator" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>UUID Generator</CardTitle>
+                <CardDescription>
+                  Generate UUIDs quickly and easily
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <UuidGenerator />
               </CardContent>
             </Card>
           </TabsContent>
