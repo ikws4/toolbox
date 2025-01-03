@@ -2,13 +2,13 @@
 
 import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Jimp, JimpMime } from "jimp"
+import { Jimp } from "jimp"
 import JSZip from 'jszip'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, X } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 export default function ImageSplitTool() {
   const [image, setImage] = useState<File | null>(null)

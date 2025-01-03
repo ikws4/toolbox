@@ -71,7 +71,7 @@ export default function JsonToCSharpConverter() {
       const csharpClasses = parseJson(jsonObject)
       setCsharpOutput(csharpClasses)
     } catch (error) {
-      setCsharpOutput('Invalid JSON input')
+      setCsharpOutput(`Invalid JSON input: ${error}`)
     }
   }
 
