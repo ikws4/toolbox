@@ -65,7 +65,7 @@ export default function GithubRepoStats() {
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-8">
+    <div className="space-y-4">
       <div className="grid w-full max-w-sm items-center gap-1.5">
         <Label htmlFor="repoInput">GitHub Repository</Label>
         <Input

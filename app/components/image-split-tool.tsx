@@ -68,7 +68,7 @@ export default function ImageSplitTool() {
     const zip = new JSZip()
 
     splitImages.forEach((imgUrl, index) => {
-      zip.file(`{index + 1}.png`, fetch(imgUrl).then(res => res.blob()))
+      zip.file(`${index + 1}.png`, fetch(imgUrl).then(res => res.blob()))
     })
 
     const content = await zip.generateAsync({ type: 'blob' })
@@ -79,7 +79,7 @@ export default function ImageSplitTool() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 p-4 md:p-8">
+    <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
       <div className="md:w-3/4 space-y-4">
         <div {...getRootProps()} className="relative border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:bg-muted/50">
           <input {...getInputProps()} />

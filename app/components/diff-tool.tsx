@@ -17,7 +17,7 @@ export default function DiffTool() {
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-8">
+    <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Textarea
           placeholder="Enter first text"

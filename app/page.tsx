@@ -7,6 +7,7 @@ import GithubRepoStats from './components/github-repo-stats'
 import DiffTool from './components/diff-tool'
 import ImageSplitTool from './components/image-split-tool'
 import UuidGenerator from './components/uuid-generator'
+import BinaryVisualizationTool from './components/binary-visualization-tool'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
@@ -21,6 +22,7 @@ export default function Dashboard() {
             <ThemeToggle />
             <Button onClick={() => window.history.back()} variant="outline" size="icon">
               <X className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <X className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               <span className="sr-only">Close</span>
             </Button>
           </div>
@@ -28,13 +30,16 @@ export default function Dashboard() {
       </div>
       <div className="flex-1 space-y-4 p-8 pt-6">
         <Tabs defaultValue="json-to-csharp" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="json-to-csharp">JSON to C# Converter</TabsTrigger>
-            <TabsTrigger value="github-stats">GitHub Repo Stats</TabsTrigger>
-            <TabsTrigger value="diff-tool">Diff Tool</TabsTrigger>
-            <TabsTrigger value="image-split">Image Split Tool</TabsTrigger>
-            <TabsTrigger value="uuid-generator">UUID Generator</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList>
+              <TabsTrigger value="json-to-csharp">JSON to C# Converter</TabsTrigger>
+              <TabsTrigger value="github-stats">GitHub Repo Stats</TabsTrigger>
+              <TabsTrigger value="diff-tool">Diff Tool</TabsTrigger>
+              <TabsTrigger value="image-split">Image Split Tool</TabsTrigger>
+              <TabsTrigger value="uuid-generator">UUID Generator</TabsTrigger>
+              <TabsTrigger value="binary-visualization">Binary Visualization Tool</TabsTrigger>
+            </TabsList>
+          </div>
           <TabsContent value="json-to-csharp" className="space-y-4">
             <Card>
               <CardHeader>
@@ -97,6 +102,19 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <UuidGenerator />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="binary-visualization" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Binary Visualization Tool</CardTitle>
+                <CardDescription>
+                  Visualize binary trees from BFS order data
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BinaryVisualizationTool />
               </CardContent>
             </Card>
           </TabsContent>
