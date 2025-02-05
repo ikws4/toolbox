@@ -55,10 +55,7 @@ export default function SourceCodeTyper() {
   const scrollToBottom = useCallback(() => {
     if (outputScrollRef.current) {
       const element = outputScrollRef.current;
-      const scrollHeight = element.scrollHeight;
-      const height = element.clientHeight;
-      const maxScroll = scrollHeight - height;
-      element.scrollTop = maxScroll; // Center the content
+      element.scrollTop = element.scrollHeight;
     }
   }, []);
 
@@ -108,6 +105,7 @@ export default function SourceCodeTyper() {
 
         let current = Math.min(newIndex, sourceCode.length);
         setDisplayedCode(sourceCode.slice(0, current));
+        scrollToBottom();
         currentIndexRef.current = current;
         charAccumulatorRef.current -= charsAdded; 
       }
@@ -131,12 +129,6 @@ export default function SourceCodeTyper() {
       charAccumulatorRef.current = 0;
     };
   }, [isPlaying, isPaused, sourceCode, speed]);
-
-  useEffect(() => {
-    if (isPlaying && !isPaused) {
-      requestAnimationFrame(scrollToBottom);
-    }
-  }, [displayedCode, scrollToBottom]);
 
   const playFromStart = () => {
     setIsPlaying(true)
@@ -249,7 +241,7 @@ export default function SourceCodeTyper() {
         }
       `}</style>
       <div className="space-y-4" ref={containerRef}>
-        <div className="border rounded-md source-editor">
+        <div className="border rounded-md source-editor" className="overflow-auto hide-scrollbar" style={{ height: `${fontSize * (510/18)}px` }}>
           <CodeMirror
             ref={sourceEditorRef}
             value={sourceCode}
@@ -260,7 +252,7 @@ export default function SourceCodeTyper() {
               foldGutter: false,
               lineNumbers: true,
             }}
-            className="min-h-[200px]"
+            
             style={{ fontSize: `${fontSize}px` }} // updated: use fontSize config
           />
         </div>
@@ -387,10 +379,15 @@ export default function SourceCodeTyper() {
         </div>
 
         <div 
-          className={`relative min-h-[${fontSize * 20}px] overflow-hidden isolate [transform-style:flat]`}
+          className="relative overflow-hidden isolate [transform-style:flat]"
+          // style={{ height: `${fontSize * (513.6/18)}px` }}
           ref={codeMirrorRef}
         >
-          <div ref={outputScrollRef} className={`overflow-auto h-[${fontSize * 20}px] hide-scrollbar`}>
+          <div 
+            ref={outputScrollRef} 
+            className="overflow-auto hide-scrollbar"
+            style={{ height: `${fontSize * (510/18)}px` }}
+          >
             <CodeMirror
               value={paddedDisplayedCode} // updated: use padded code
               theme={vscodeDark}
