@@ -35,7 +35,7 @@ export default function SourceCodeTyper() {
   const [displayedCode, setDisplayedCode] = useState('')
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
-  const [speed, setSpeed] = useState(50)
+  const [speed, setSpeed] = useState(25)
   const currentIndexRef = useRef(0)
   const timerRef = useRef<NodeJS.Timeout>()
   const [isRecording, setIsRecording] = useState(false)
@@ -45,9 +45,12 @@ export default function SourceCodeTyper() {
   const chunksRef = useRef<Blob[]>([])
   const codeMirrorRef = useRef<HTMLDivElement>(null)
   const [selectedLang, setSelectedLang] = useState('javascript')
-  const [showLineNumbers, setShowLineNumbers] = useState(true)
+  const [showLineNumbers, setShowLineNumbers] = useState(false)
   const sourceEditorRef = useRef<{ editor: any } | null>(null)
   const outputScrollRef = useRef<HTMLDivElement>(null)
+  const lastTimestampRef = useRef<number | null>(null);
+  const charAccumulatorRef = useRef(0);
+  const [fontSize, setFontSize] = useState(16); // added fontSize config
 
   const scrollToBottom = useCallback(() => {
     if (outputScrollRef.current) {
@@ -82,19 +85,51 @@ export default function SourceCodeTyper() {
   }, [sourceCode, isPlaying, isPaused])
 
   useEffect(() => {
-    if (isPlaying && !isPaused && currentIndexRef.current < sourceCode.length) {
-      timerRef.current = setTimeout(() => {
-        setDisplayedCode(sourceCode.slice(0, currentIndexRef.current + 1))
-        currentIndexRef.current += 1
-      }, 1000 / speed)
+    let animationFrameId: number;
+
+    function animate(timestamp: number) {
+      if (lastTimestampRef.current === null) {
+      lastTimestampRef.current = timestamp;
+      }
+      const delta = timestamp - lastTimestampRef.current;
+      lastTimestampRef.current = timestamp;
+      charAccumulatorRef.current += (speed * delta) / 1000;
+      const charsToAdd = Math.floor(charAccumulatorRef.current);
+      if (charsToAdd > 0 && currentIndexRef.current < sourceCode.length) {
+      let newIndex = currentIndexRef.current;
+      let charsAdded = 0;
+
+      while (charsAdded < charsToAdd && newIndex < sourceCode.length) {
+        if (sourceCode[newIndex] !== ' ') {
+        charsAdded++;
+        }
+        newIndex++;
+      }
+
+      currentIndexRef.current = Math.min(newIndex, sourceCode.length);
+      setDisplayedCode(sourceCode.slice(0, currentIndexRef.current));
+      charAccumulatorRef.current -= charsAdded;
+      }
+
+      if (currentIndexRef.current >= sourceCode.length) {
+      setIsPaused(true);
+      }
+
+      if (isPlaying && !isPaused && currentIndexRef.current < sourceCode.length) {
+      animationFrameId = requestAnimationFrame(animate);
+      }
+    }
+
+    if (isPlaying && !isPaused) {
+      animationFrameId = requestAnimationFrame(animate);
     }
 
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-      }
-    }
-  }, [isPlaying, isPaused, displayedCode, sourceCode, speed])
+      cancelAnimationFrame(animationFrameId);
+      lastTimestampRef.current = null;
+      charAccumulatorRef.current = 0;
+    };
+  }, [isPlaying, isPaused, sourceCode, speed]);
 
   useEffect(() => {
     if (isPlaying && !isPaused) {
@@ -133,19 +168,16 @@ export default function SourceCodeTyper() {
 
     try {
       const element = codeMirrorRef.current;
-      const rect = element.getBoundingClientRect();
       const displaySurface = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: "browser",
-          frameRate: 30,
-          width: rect.width,
-          height: rect.height,
-          cursor: "never"
-        }
+        preferCurrentTab: true,
       });
+      const [track] = displaySurface.getVideoTracks();
+  
+      const restrictionTarget = await RestrictionTarget.fromElement(element);
+      await track.restrictTo(restrictionTarget);
 
       const mediaRecorder = new MediaRecorder(displaySurface, {
-        mimeType: 'video/webm;codecs=vp9'
+        mimeType: 'video/mp4'
       });
 
       mediaRecorderRef.current = mediaRecorder;
@@ -158,11 +190,12 @@ export default function SourceCodeTyper() {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        const blob = new Blob(chunksRef.current, { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'code-typing.webm';
+        const currentDate = new Date().toISOString();
+        a.download = `code-typing-${currentDate}.mp4`;
         a.click();
         URL.revokeObjectURL(url);
         
@@ -174,7 +207,6 @@ export default function SourceCodeTyper() {
       mediaRecorder.start();
       playFromStart();
 
-      alert('Please select the code viewer area in the screen share dialog');
     } catch (error) {
       console.error('Error starting recording:', error);
       setIsRecording(false);
@@ -189,142 +221,190 @@ export default function SourceCodeTyper() {
   }
 
   useEffect(() => {
-    if (isRecording && !isPaused && currentIndexRef.current >= sourceCode.length) {
+    if (isRecording && currentIndexRef.current >= sourceCode.length) {
       stopRecording()
     }
   }, [currentIndexRef.current, sourceCode.length, isRecording, isPaused])
 
+  // Add paddedDisplayedCode computed variable
+  const paddedDisplayedCode = (() => {
+    const currentLines = displayedCode.split('\n');
+    const missing = Math.max(0, 20 - currentLines.length);
+    return displayedCode + '\n'.repeat(missing);
+  })();
+
   return (
-    <div className="space-y-4" ref={containerRef}>
-      <div className="border rounded-md source-editor">
-        <CodeMirror
-          ref={sourceEditorRef}
-          value={sourceCode}
-          onChange={setSourceCode}
-          theme={vscodeDark}
-          extensions={[LANGUAGE_OPTIONS[selectedLang].extension()]}
-          basicSetup={{
-            foldGutter: false,
-            lineNumbers: true,
-          }}
-          className="min-h-[200px]"
-          style={{ fontSize: '14px' }}
-        />
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex gap-2">
-          {!isPlaying ? (
-            <>
-              <Button 
-                variant="outline" 
-                onClick={startTyping}
-                disabled={!sourceCode}
-              >
-                <Play className="w-4 h-4 mr-2" />Preview
-              </Button>
-              <Button
-                variant="outline"
-                onClick={startRecording}
-                disabled={!sourceCode || isRecording}
-              >
-                {isExporting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Video className="w-4 h-4 mr-2" />
-                )}
-                Export Video
-              </Button>
-              <Button variant="outline" onClick={() => navigator.clipboard.writeText(sourceCode)}>
-                <Copy className="w-4 h-4" />
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button 
-                variant="outline" 
-                onClick={playFromStart}
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />Restart
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={togglePause}
-              >
-                <Pause className="w-4 h-4 mr-2" />
-                {isPaused ? 'Resume' : 'Pause'}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={stopTyping}
-              >
-                <Square className="w-4 h-4 mr-2" />Stop
-              </Button>
-            </>
-          )}
-        </div>
-
-        <div className="grid gap-4 p-4 border rounded-md">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Label>Language:</Label>
-              <Select value={selectedLang} onValueChange={setSelectedLang}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(LANGUAGE_OPTIONS).map(([key, { name }]) => (
-                    <SelectItem key={key} value={key}>{name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                id="line-numbers"
-                checked={showLineNumbers}
-                onCheckedChange={setShowLineNumbers}
-              />
-              <Label htmlFor="line-numbers">Line Numbers</Label>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Label>Speed:</Label>
-            <Slider
-              className="w-[200px]"
-              value={[speed]}
-              onValueChange={([value]) => setSpeed(value)}
-              min={1}
-              max={100}
-              step={1}
-            />
-            <span className="text-sm w-16">{speed} c/s</span>
-          </div>
-        </div>
-      </div>
-
-      <div 
-        className="border rounded-md relative max-h-[400px] overflow-hidden" 
-        ref={codeMirrorRef}
-      >
-        <div ref={outputScrollRef} className="overflow-auto h-[400px]">
+    <>
+      {/* Add CSS to hide scrollbar */}
+      <style>{`
+        .hide-scrollbar {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+      <div className="space-y-4" ref={containerRef}>
+        <div className="border rounded-md source-editor">
           <CodeMirror
-            value={displayedCode}
+            ref={sourceEditorRef}
+            value={sourceCode}
+            onChange={setSourceCode}
             theme={vscodeDark}
-            extensions={[
-              LANGUAGE_OPTIONS[selectedLang].extension(),
-            ]}
+            extensions={[LANGUAGE_OPTIONS[selectedLang].extension()]}
             basicSetup={{
               foldGutter: false,
-              lineNumbers: showLineNumbers,
-              highlightActiveLine: false,
+              lineNumbers: true,
             }}
-            style={{ fontSize: '14px' }}
+            className="min-h-[200px]"
+            style={{ fontSize: `${fontSize}px` }} // updated: use fontSize config
           />
         </div>
+
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            {!isPlaying ? (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={startTyping}
+                  disabled={!sourceCode}
+                >
+                  <Play className="w-4 h-4 mr-2" />Preview
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={startRecording}
+                  disabled={!sourceCode || isRecording}
+                >
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Video className="w-4 h-4 mr-2" />
+                  )}
+                  Export Video
+                </Button>
+                <Button variant="outline" onClick={() => navigator.clipboard.writeText(sourceCode)}>
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={playFromStart}
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />Restart
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={togglePause}
+                >
+                  <Pause className="w-4 h-4 mr-2" />
+                  {isPaused ? 'Resume' : 'Pause'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={stopTyping}
+                >
+                  <Square className="w-4 h-4 mr-2" />Stop
+                </Button>
+              </>
+            )}
+          </div>
+
+          <div className="grid gap-4 p-4 border rounded-md">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label>Language:</Label>
+                <Select value={selectedLang} onValueChange={setSelectedLang}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LANGUAGE_OPTIONS).map(([key, { name }]) => (
+                      <SelectItem key={key} value={key}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="line-numbers"
+                  checked={showLineNumbers}
+                  onCheckedChange={setShowLineNumbers}
+                />
+                <Label htmlFor="line-numbers">Line Numbers</Label>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label>Speed:</Label>
+              {/* Replace slider with group toggle */}
+              <div className="flex gap-2">
+                <Button 
+                  variant={speed === 10 ? 'default' : 'outline'} 
+                  onClick={() => setSpeed(10)}>
+                  Slow
+                </Button>
+                <Button 
+                  variant={speed === 25 ? 'default' : 'outline'} 
+                  onClick={() => setSpeed(25)}>
+                  Normal
+                </Button>
+                <Button 
+                  variant={speed === 75 ? 'default' : 'outline'} 
+                  onClick={() => setSpeed(75)}>
+                  Fast
+                </Button>
+                <Button 
+                  variant={speed === 200 ? 'default' : 'outline'} 
+                  onClick={() => setSpeed(200)}>
+                  Flash
+                </Button>
+              </div>
+            </div>
+            {/* Removed Slider and speed text */}
+
+            <div className="flex items-center gap-2">
+              <Label>Font Size:</Label>
+              <Slider
+                value={[fontSize]}
+                onValueChange={(value) => setFontSize(value[0])}
+                min={10}
+                max={30}
+                step={1}
+                className="w-32"
+              />
+              <span>{fontSize}px</span>
+            </div>
+          </div>
+        </div>
+
+        <div 
+          className="relative overflow-hidden isolate [transform-style:flat]" 
+          ref={codeMirrorRef}
+        >
+          <div ref={outputScrollRef} className={`overflow-auto h-[${fontSize * 20}px] hide-scrollbar`}>
+            <CodeMirror
+              value={paddedDisplayedCode} // updated: use padded code
+              theme={vscodeDark}
+              extensions={[
+                LANGUAGE_OPTIONS[selectedLang].extension(),
+              ]}
+              readOnly={true}
+              basicSetup={{
+                foldGutter: false,
+                lineNumbers: showLineNumbers,
+                highlightActiveLine: false,
+              }}
+              style={{ fontSize: `${fontSize}px` }} // updated: use fontSize config
+            />
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
