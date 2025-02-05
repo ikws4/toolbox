@@ -11,6 +11,7 @@ import BinaryVisualizationTool from './components/binary-visualization-tool'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
+import JsonViewer from './components/json-viewer'
 
 export default function Dashboard() {
   return (
@@ -38,6 +39,7 @@ export default function Dashboard() {
               <TabsTrigger value="image-split">Image Split Tool</TabsTrigger>
               <TabsTrigger value="uuid-generator">UUID Generator</TabsTrigger>
               <TabsTrigger value="binary-visualization">Binary Visualization Tool</TabsTrigger>
+              <TabsTrigger value="json-viewer">JSON Viewer</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="json-to-csharp" className="space-y-4">
@@ -115,6 +117,19 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <BinaryVisualizationTool />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="json-viewer" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>JSON Viewer</CardTitle>
+                <CardDescription>
+                  View and format JSON data
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <JsonViewer />
               </CardContent>
             </Card>
           </TabsContent>
