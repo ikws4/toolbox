@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import JsonViewer from './components/json-viewer'
+import SourceCodeTyper from './components/source-code-typer'
 
 export default function Dashboard() {
   return (
@@ -40,6 +41,7 @@ export default function Dashboard() {
               <TabsTrigger value="uuid-generator">UUID Generator</TabsTrigger>
               <TabsTrigger value="binary-visualization">Binary Visualization Tool</TabsTrigger>
               <TabsTrigger value="json-viewer">JSON Viewer</TabsTrigger>
+              <TabsTrigger value="code-typer">Code Typer</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="json-to-csharp" className="space-y-4">
@@ -130,6 +132,19 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <JsonViewer />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="code-typer" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Source Code Typing Effect</CardTitle>
+                <CardDescription>
+                  Create typing effect presentations for your source code
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SourceCodeTyper />
               </CardContent>
             </Card>
           </TabsContent>
