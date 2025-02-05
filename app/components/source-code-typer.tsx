@@ -89,34 +89,35 @@ export default function SourceCodeTyper() {
 
     function animate(timestamp: number) {
       if (lastTimestampRef.current === null) {
-      lastTimestampRef.current = timestamp;
+        lastTimestampRef.current = timestamp;
       }
       const delta = timestamp - lastTimestampRef.current;
       lastTimestampRef.current = timestamp;
       charAccumulatorRef.current += (speed * delta) / 1000;
       const charsToAdd = Math.floor(charAccumulatorRef.current);
       if (charsToAdd > 0 && currentIndexRef.current < sourceCode.length) {
-      let newIndex = currentIndexRef.current;
-      let charsAdded = 0;
+        let newIndex = currentIndexRef.current;
+        let charsAdded = 0;
+        while (charsAdded < charsToAdd && newIndex < sourceCode.length) {
+          if (sourceCode[newIndex] !== ' ') {
+            charsAdded++;
+          }
 
-      while (charsAdded < charsToAdd && newIndex < sourceCode.length) {
-        if (sourceCode[newIndex] !== ' ') {
-        charsAdded++;
+          newIndex++;
         }
-        newIndex++;
-      }
 
-      currentIndexRef.current = Math.min(newIndex, sourceCode.length);
-      setDisplayedCode(sourceCode.slice(0, currentIndexRef.current));
-      charAccumulatorRef.current -= charsAdded;
+        let current = Math.min(newIndex, sourceCode.length);
+        setDisplayedCode(sourceCode.slice(0, current));
+        currentIndexRef.current = current;
+        charAccumulatorRef.current -= charsAdded; 
       }
 
       if (currentIndexRef.current >= sourceCode.length) {
-      setIsPaused(true);
+        setIsPaused(true);
       }
 
       if (isPlaying && !isPaused && currentIndexRef.current < sourceCode.length) {
-      animationFrameId = requestAnimationFrame(animate);
+        animationFrameId = requestAnimationFrame(animate);
       }
     }
 
@@ -221,10 +222,12 @@ export default function SourceCodeTyper() {
   }
 
   useEffect(() => {
-    if (isRecording && currentIndexRef.current >= sourceCode.length) {
-      stopRecording()
+    if (isRecording && currentIndexRef.current >= sourceCode.length && isPaused) {
+      setTimeout(() => {
+        stopRecording()
+      }, 1000);
     }
-  }, [currentIndexRef.current, sourceCode.length, isRecording, isPaused])
+  }, [currentIndexRef, isRecording, isPaused])
 
   // Add paddedDisplayedCode computed variable
   const paddedDisplayedCode = (() => {
@@ -384,7 +387,7 @@ export default function SourceCodeTyper() {
         </div>
 
         <div 
-          className="relative overflow-hidden isolate [transform-style:flat]" 
+          className={`relative min-h-[${fontSize * 20}px] overflow-hidden isolate [transform-style:flat]`}
           ref={codeMirrorRef}
         >
           <div ref={outputScrollRef} className={`overflow-auto h-[${fontSize * 20}px] hide-scrollbar`}>
