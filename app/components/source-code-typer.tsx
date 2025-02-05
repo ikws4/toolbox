@@ -51,6 +51,7 @@ export default function SourceCodeTyper() {
   const lastTimestampRef = useRef<number | null>(null);
   const charAccumulatorRef = useRef(0);
   const [fontSize, setFontSize] = useState(16); // added fontSize config
+  const [maxLineWidth, setMaxLineWidth] = useState(0)
 
   const scrollToBottom = useCallback(() => {
     if (outputScrollRef.current) {
@@ -58,6 +59,15 @@ export default function SourceCodeTyper() {
       element.scrollTop = element.scrollHeight;
     }
   }, []);
+
+  const calculateMaxLineWidth = useCallback((code: string) => {
+    const lines = code.split('\n')
+    const maxWidth = Math.max(
+      50, // minimum width
+      ...lines.map(line => line.length)
+    )
+    setMaxLineWidth(maxWidth)
+  }, [])
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -130,6 +140,10 @@ export default function SourceCodeTyper() {
     };
   }, [isPlaying, isPaused, sourceCode, speed]);
 
+  useEffect(() => {
+    calculateMaxLineWidth(sourceCode)
+  }, [sourceCode, calculateMaxLineWidth])
+
   const playFromStart = () => {
     setIsPlaying(true)
     setIsPaused(false)
@@ -170,9 +184,9 @@ export default function SourceCodeTyper() {
       await track.restrictTo(restrictionTarget);
 
       const mediaRecorder = new MediaRecorder(displaySurface, {
-        mimeType: 'video/mp4'
+        mimeType: 'video/webm',
       });
-
+      
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -183,12 +197,12 @@ export default function SourceCodeTyper() {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/mp4' });
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         const currentDate = new Date().toISOString();
-        a.download = `code-typing-${currentDate}.mp4`;
+        a.download = `code-typing-${currentDate}.webm`;
         a.click();
         URL.revokeObjectURL(url);
         
@@ -241,7 +255,7 @@ export default function SourceCodeTyper() {
         }
       `}</style>
       <div className="space-y-4" ref={containerRef}>
-        <div className="border rounded-md source-editor" className="overflow-auto hide-scrollbar" style={{ height: `${fontSize * (510/18)}px` }}>
+        <div className="source-editor overflow-auto hide-scrollbar" style={{ height: `${fontSize * (510/18)}px` }}>
           <CodeMirror
             ref={sourceEditorRef}
             value={sourceCode}
@@ -377,16 +391,20 @@ export default function SourceCodeTyper() {
             </div>
           </div>
         </div>
-
+        
         <div 
-          className="relative overflow-hidden isolate [transform-style:flat]"
-          // style={{ height: `${fontSize * (513.6/18)}px` }}
+          className="isolate"
           ref={codeMirrorRef}
+          style={{ 
+            width: `${Math.min(maxLineWidth * fontSize * 0.557, window.innerWidth - 32)}px`
+          }}
         >
           <div 
             ref={outputScrollRef} 
             className="overflow-auto hide-scrollbar"
-            style={{ height: `${fontSize * (510/18)}px` }}
+            style={{ 
+              height: `${fontSize * (510/18)}px`,
+            }}
           >
             <CodeMirror
               value={paddedDisplayedCode} // updated: use padded code
