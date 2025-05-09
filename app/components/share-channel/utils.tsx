@@ -63,3 +63,34 @@ export function formatFileSize(bytes: number): string {
   else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
   else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
 }
+
+/**
+ * Handle PeerJS connection errors and provide user-friendly messages
+ */
+export function handlePeerConnectionError(error: any): string {
+  if (!error) return 'Unknown error occurred';
+  
+  // Handle specific PeerJS error types
+  switch (error.type) {
+    case 'peer-unavailable':
+      return 'Peer not found. The channel ID may be invalid or the host is offline.';
+    case 'server-error':
+      return 'Server error connecting to the peer network. Try again in a moment.';
+    case 'network':
+      return 'Network error. Please check your internet connection.';
+    case 'browser-incompatible':
+      return 'Your browser may not fully support WebRTC. Try using Chrome or Firefox.';
+    case 'disconnected':
+      return 'Connection to the signaling server has been lost.';
+    case 'invalid-id':
+      return 'Invalid channel ID format.';
+    case 'unavailable-id':
+      return 'This channel ID is already taken. Please try another one.';
+    case 'ssl-unavailable':
+      return 'SSL is required for this connection but unavailable.';
+    case 'webrtc':
+      return 'WebRTC connection failed. This may be due to firewall or network restrictions.';
+    default:
+      return error.message || 'Connection error occurred.';
+  }
+}

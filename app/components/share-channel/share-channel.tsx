@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
-import { SendHorizontal, LogOut, Image, Link2, User, Users } from 'lucide-react'
+import { Settings, SendHorizontal, LogOut, Image, Link2, User, Users, RefreshCw, Search, KeyRound } from 'lucide-react'
+import { format } from 'date-fns'
 import Peer, { DataConnection } from 'peerjs'
 import FileList from './file-list'
 import MessageList from './message-list'
-import HostChannel from './host-channel'
-import JoinChannel from './join-channel'
-import { generateEmojiUsername, formatFileSize, DiscoveredChannel, BroadcastMessageType } from './utils'
+import ConnectionSettings from './connection-settings'
+import { createJoinerPeer } from './custom-peer'
+import { generateEmojiUsername, formatFileSize, DiscoveredChannel, BroadcastMessageType, handlePeerConnectionError } from './utils'
 
 interface Message {
   id: string
@@ -36,11 +37,12 @@ export default function ShareChannel() {
   const [messages, setMessages] = useState<Message[]>([])
   const [messageInput, setMessageInput] = useState('')
   const [userName, setUserName] = useState('')
-  const [channelId, setChannelId] = useState('')
+  const [channelId, setChannelId] = useState(Math.random().toString(36).substring(2, 9))
   const [peers, setPeers] = useState<string[]>([])
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [discoveredChannels, setDiscoveredChannels] = useState<DiscoveredChannel[]>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showConnectionSettings, setShowConnectionSettings] = useState(false)
   
   const peerRef = useRef<Peer | null>(null)
   const connectionsRef = useRef<Map<string, DataConnection>>(new Map())
@@ -86,13 +88,18 @@ export default function ShareChannel() {
   const handleUserNameChange = (newName: string) => {
     setUserName(newName)
   }
-
   const handleHostChannel = (id: string) => {
     setChannelId(id)
     setConnectionMode('host')
     
     const peer = new Peer(id, {
-      debug: 2
+      debug: 2,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ]
+      }
     })
     
     peer.on('open', (id) => {
@@ -106,52 +113,128 @@ export default function ShareChannel() {
       // Broadcast channel availability for discovery
       broadcastChannelAnnouncement(id)
     })
-    
-    peer.on('connection', (conn) => {
+      peer.on('connection', (conn) => {
       setupConnection(conn)
     })
-    
-    peer.on('error', (err) => {
+      peer.on('error', (err) => {
       toast({
         title: "Connection error",
-        description: err.message,
+        description: handlePeerConnectionError(err),
         variant: "destructive"
       })
     })
   }
   
   const handleJoinChannel = (hostId: string) => {
-    if (!peerRef.current) {
-      const peer = new Peer(`joiner-${Math.random().toString(36).substring(2, 9)}`, {
-        debug: 2
+    if (!hostId || hostId.trim() === '') {
+      toast({
+        title: "Invalid channel ID",
+        description: "Please enter a valid channel ID",
+        variant: "destructive"
       })
+      return
+    }
+
+    // Show a connecting toast
+    toast({
+      title: "Connecting...",
+      description: `Attempting to connect to channel ${hostId}`
+    })
+
+    if (!peerRef.current) {
+      // Import the createJoinerPeer from custom-peer.ts
+      const peer = createJoinerPeer()
+      
+      // Set a connection timeout
+      const connectionTimeout = setTimeout(() => {
+        toast({
+          title: "Connection timeout",
+          description: "Could not connect to the host channel. Timed out after 10 seconds.",
+          variant: "destructive"
+        })
+        // Clean up the peer if there was a timeout
+        if (peer && !peer.destroyed) {
+          peer.destroy()
+        }
+      }, 10000)
       
       peer.on('open', () => {
-        const conn = peer.connect(hostId, {
-          reliable: true
-        })
-        
-        setupConnection(conn)
-        peerRef.current = peer
-        setChannelId(hostId)
-        setConnectionMode('join')
-      })
-      
+        try {
+          console.log("Peer opened, attempting to connect to:", hostId)
+          const conn = peer.connect(hostId, {
+            reliable: true,
+            serialization: 'json'
+          })
+          
+          // Connection success events
+          conn.on('open', () => {
+            // Clear the timeout since connection succeeded
+            clearTimeout(connectionTimeout)
+            console.log("Connection opened to host:", hostId)
+            
+            // Only store the peer reference once the connection is successful
+            peerRef.current = peer
+            setChannelId(hostId)
+            setConnectionMode('join')
+            setupConnection(conn)
+          })
+          
+          // Connection failure events
+          conn.on('error', (err) => {
+            clearTimeout(connectionTimeout)
+            console.error("Connection error:", err)
+            toast({
+              title: "Connection failed",
+              description: "Could not connect to the host channel",
+              variant: "destructive"
+            })
+          })
+        } catch (err) {
+          clearTimeout(connectionTimeout)
+          console.error("Failed to establish connection:", err)
+          toast({
+            title: "Connection error",
+            description: "Failed to establish connection",
+            variant: "destructive"
+          })
+        }
+      })      
       peer.on('error', (err) => {
+        clearTimeout(connectionTimeout)
+        console.error("Peer error:", err)
         toast({
           title: "Connection error",
-          description: err.message,
+          description: handlePeerConnectionError(err),
           variant: "destructive"
         })
       })
     } else {
-      const conn = peerRef.current.connect(hostId, {
-        reliable: true
-      })
-      
-      setupConnection(conn)
-      setChannelId(hostId)
-      setConnectionMode('join')
+      try {
+        const conn = peerRef.current.connect(hostId, {
+          reliable: true
+        })
+        
+        // Connection success events
+        conn.on('open', () => {
+          setChannelId(hostId)
+          setConnectionMode('join')
+          setupConnection(conn)
+        })
+        
+        // Connection failure events
+        conn.on('error', (err) => {
+          toast({
+            title: "Connection failed",
+            description: "Could not connect to the host channel",
+            variant: "destructive"
+          })
+        })
+      } catch (err) {
+        toast({
+          title: "Connection error",
+          description: "Failed to establish connection",
+          variant: "destructive"
+        })      }
     }
   }
   
@@ -542,33 +625,208 @@ export default function ShareChannel() {
       })
     })
   }
-
   return (
     <div className="h-full flex flex-col">
       {!isConnected ? (
-        <Tabs defaultValue="join" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-            <TabsTrigger value="host">Host Channel</TabsTrigger>
-            <TabsTrigger value="join">Join Channel</TabsTrigger>
-          </TabsList>
-          <TabsContent value="host" className="mt-4">
-            <HostChannel 
-              userName={userName} 
-              onUserNameChange={handleUserNameChange}
-              onHost={handleHostChannel} 
-            />
-          </TabsContent>
-          <TabsContent value="join" className="mt-4">
-            <JoinChannel 
-              userName={userName}
-              onUserNameChange={handleUserNameChange}
-              onJoin={handleJoinChannel}
-              discoveredChannels={discoveredChannels}
-              onRefreshChannels={discoverChannels}
-              isRefreshing={isRefreshing}
-            />
-          </TabsContent>
-        </Tabs>
+        <div className="w-full h-full flex flex-col">
+          <div className="flex justify-center mb-2">
+            <Tabs defaultValue="join" className="w-full max-w-3xl">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="host" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Host Channel
+                </TabsTrigger>
+                <TabsTrigger value="join" className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Join Channel
+                </TabsTrigger>
+              </TabsList>
+              
+              <div className="mt-4 bg-background rounded-md p-4">
+                <TabsContent value="host" className="m-0">
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-xl font-semibold mb-1">Host a Channel</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Create a new channel and share the ID with others
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="user-name">Your Name</Label>
+                        <div className="flex gap-2">                          <Input
+                            id="user-name"
+                            value={userName}
+                            onChange={(e) => handleUserNameChange(e.target.value)}
+                            placeholder="Enter your name"
+                            className="flex-1"
+                          />
+                          <Button 
+                            onClick={() => handleUserNameChange(generateEmojiUsername())}
+                            variant="outline"
+                            size="icon"
+                          >
+                            <User className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="channel-id">Channel ID</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="channel-id"
+                            value={channelId}
+                            onChange={(e) => setChannelId(e.target.value)}
+                            placeholder="Enter a channel ID"
+                            className="flex-1"
+                          />
+                          <Button 
+                            onClick={() => setChannelId(Math.random().toString(36).substring(2, 9))}
+                            variant="outline"
+                            size="icon"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <Button onClick={() => handleHostChannel(channelId)} className="w-full">
+                        Host Channel
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="join" className="m-0">
+                  <Tabs defaultValue="discover" className="w-full">
+                    <div>
+                      <h2 className="text-xl font-semibold mb-1">Join a Channel</h2>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Connect to an existing channel
+                      </p>
+                    </div>
+                    
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="discover" className="flex items-center gap-2">
+                        <Search className="h-4 w-4" />
+                        Discover
+                      </TabsTrigger>
+                      <TabsTrigger value="manual" className="flex items-center gap-2">
+                        <KeyRound className="h-4 w-4" />
+                        Manual Join
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="user-name-join">Your Name</Label>
+                        <div className="flex gap-2">
+                          <Input                            id="user-name-join"
+                            value={userName}
+                            onChange={(e) => handleUserNameChange(e.target.value)}
+                            placeholder="Enter your name"
+                            className="flex-1"
+                          />
+                          <Button 
+                            onClick={() => handleUserNameChange(generateEmojiUsername())}
+                            variant="outline"
+                            size="icon"
+                          >
+                            <User className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <TabsContent value="discover" className="m-0 space-y-2">          <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-medium">Available Channels</h3>
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={discoverChannels} 
+                              size="sm" 
+                              variant="outline" 
+                              disabled={isRefreshing}
+                            >
+                              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                              Refresh
+                            </Button>
+                            <Button 
+                              onClick={() => setShowConnectionSettings(true)}
+                              size="sm" 
+                              variant="outline"
+                              title="Connection settings"
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {discoveredChannels.length === 0 ? (
+                          <div className="text-center p-6 border rounded-md bg-muted/20">
+                            <Users className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                            <p className="text-muted-foreground">No channels found</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Click refresh to discover channels or host your own
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid gap-2">
+                            {[...discoveredChannels]
+                              .sort((a, b) => b.timestamp - a.timestamp)
+                              .map((channel) => (
+                                <div 
+                                  key={channel.id} 
+                                  className="p-3 border rounded-md hover:bg-accent/10 transition-colors cursor-pointer"
+                                  onClick={() => handleJoinChannel(channel.id)}
+                                >
+                                  <div className="flex justify-between">
+                                    <div>
+                                      <p className="font-medium">{channel.hostName}</p>
+                                      <p className="text-sm text-muted-foreground">ID: {channel.id}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-sm text-muted-foreground flex items-center">
+                                        <Users className="h-3.5 w-3.5 mr-1" />
+                                        {channel.peerCount} connected
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {format(new Date(channel.timestamp), 'HH:mm:ss')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </TabsContent>
+                      
+                      <TabsContent value="manual" className="m-0 space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="channel-id-join">Channel ID</Label>
+                          <Input
+                            id="channel-id-join"
+                            placeholder="Enter the channel ID"
+                            value={channelId}
+                            onChange={(e) => setChannelId(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleJoinChannel(channelId)}
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Ask the host for their channel ID
+                          </p>
+                        </div>
+                        
+                        <Button onClick={() => handleJoinChannel(channelId)} className="w-full">
+                          Join Channel
+                        </Button>
+                      </TabsContent>
+                    </div>
+                  </Tabs>
+                </TabsContent>
+              </div>
+            </Tabs>
+          </div>
+        </div>
       ) : (
         <div className="flex flex-col h-full">
           <div className="flex justify-between items-center mb-4 p-2 border-b">
@@ -589,17 +847,16 @@ export default function ShareChannel() {
               variant="ghost" 
               size="sm"
               className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
+            >              <LogOut className="h-4 w-4 mr-2" />
               Leave
             </Button>
           </div>
           
-          <div className="flex-1 overflow-y-auto mb-4 border rounded-md p-4">
+          <div className="flex-1 overflow-y-auto mb-4 border rounded-md p-4 bg-background">
             <MessageList messages={messages} currentUserId={peerRef.current?.id || ''} />
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Input
               placeholder="Type your message..."
               value={messageInput}
@@ -607,9 +864,8 @@ export default function ShareChannel() {
               onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
               className="flex-1"
             />
-            <Button onClick={handleFileSelect} variant="outline">
-              <Image className="h-4 w-4 mr-2" />
-              Files
+            <Button onClick={handleFileSelect} variant="outline" size="icon" title="Attach files">
+              <Image className="h-4 w-4" />
             </Button>
             <input
               type="file"
@@ -618,13 +874,26 @@ export default function ShareChannel() {
               onChange={handleFileChange}
               className="hidden"
             />
-            <Button onClick={sendMessage}>
-              <SendHorizontal className="h-4 w-4 mr-2" />
-              Send
+            <Button onClick={sendMessage} size="icon" title="Send message">
+              <SendHorizontal className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
+      
+      {/* Connection Settings Dialog */}
+      <ConnectionSettings 
+        isOpen={showConnectionSettings}
+        onClose={() => setShowConnectionSettings(false)}
+        onSave={(config) => {
+          // Handle TURN server configuration
+          toast({
+            title: "Connection settings updated",
+            description: config.useTurn ? "Using TURN server" : "Using default connection"
+          })
+          setShowConnectionSettings(false)
+        }}
+      />
     </div>
   )
 }
