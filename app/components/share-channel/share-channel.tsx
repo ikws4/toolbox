@@ -1,0 +1,630 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/components/ui/use-toast"
+import { SendHorizontal, LogOut, Image, Link2, User, Users } from 'lucide-react'
+import Peer, { DataConnection } from 'peerjs'
+import FileList from './file-list'
+import MessageList from './message-list'
+import HostChannel from './host-channel'
+import JoinChannel from './join-channel'
+import { generateEmojiUsername, formatFileSize, DiscoveredChannel, BroadcastMessageType } from './utils'
+
+interface Message {
+  id: string
+  senderId: string
+  senderName: string
+  content: string
+  timestamp: number
+  type: 'text' | 'image' | 'file'
+  fileInfo?: {
+    name: string
+    size: number
+    type: string
+    data?: ArrayBuffer
+  }
+}
+
+export default function ShareChannel() {
+  const [isConnected, setIsConnected] = useState(false)
+  const [connectionMode, setConnectionMode] = useState<'host' | 'join' | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [messageInput, setMessageInput] = useState('')
+  const [userName, setUserName] = useState('')
+  const [channelId, setChannelId] = useState('')
+  const [peers, setPeers] = useState<string[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [discoveredChannels, setDiscoveredChannels] = useState<DiscoveredChannel[]>([])
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  const peerRef = useRef<Peer | null>(null)
+  const connectionsRef = useRef<Map<string, DataConnection>>(new Map())
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const discoveryPeerRef = useRef<Peer | null>(null)
+  const { toast } = useToast()
+
+  // Initialize user name from localStorage if available or generate emoji username
+  useEffect(() => {
+    const savedUserName = localStorage.getItem('shareChannelUserName')
+    if (savedUserName) {
+      setUserName(savedUserName)
+    } else {
+      // Generate a default emoji username
+      const emojiName = generateEmojiUsername()
+      setUserName(emojiName)
+      localStorage.setItem('shareChannelUserName', emojiName)
+    }
+  }, [])
+
+  // Save user name to localStorage when it changes
+  useEffect(() => {
+    if (userName) {
+      localStorage.setItem('shareChannelUserName', userName)
+    }
+  }, [userName])
+
+  // Automatically trigger channel discovery when the component mounts
+  useEffect(() => {
+    // Only run discovery if not already connected
+    if (!isConnected) {
+      discoverChannels()
+    }
+    
+    // Clean up discovery peer on unmount
+    return () => {
+      if (discoveryPeerRef.current) {
+        discoveryPeerRef.current.destroy()
+      }
+    }
+  }, [isConnected])
+
+  const handleUserNameChange = (newName: string) => {
+    setUserName(newName)
+  }
+
+  const handleHostChannel = (id: string) => {
+    setChannelId(id)
+    setConnectionMode('host')
+    
+    const peer = new Peer(id, {
+      debug: 2
+    })
+    
+    peer.on('open', (id) => {
+      toast({
+        title: "Channel created",
+        description: `Your channel ID is ${id}`,
+      })
+      setIsConnected(true)
+      peerRef.current = peer
+
+      // Broadcast channel availability for discovery
+      broadcastChannelAnnouncement(id)
+    })
+    
+    peer.on('connection', (conn) => {
+      setupConnection(conn)
+    })
+    
+    peer.on('error', (err) => {
+      toast({
+        title: "Connection error",
+        description: err.message,
+        variant: "destructive"
+      })
+    })
+  }
+  
+  const handleJoinChannel = (hostId: string) => {
+    if (!peerRef.current) {
+      const peer = new Peer(`joiner-${Math.random().toString(36).substring(2, 9)}`, {
+        debug: 2
+      })
+      
+      peer.on('open', () => {
+        const conn = peer.connect(hostId, {
+          reliable: true
+        })
+        
+        setupConnection(conn)
+        peerRef.current = peer
+        setChannelId(hostId)
+        setConnectionMode('join')
+      })
+      
+      peer.on('error', (err) => {
+        toast({
+          title: "Connection error",
+          description: err.message,
+          variant: "destructive"
+        })
+      })
+    } else {
+      const conn = peerRef.current.connect(hostId, {
+        reliable: true
+      })
+      
+      setupConnection(conn)
+      setChannelId(hostId)
+      setConnectionMode('join')
+    }
+  }
+  
+  const setupConnection = (conn: DataConnection) => {
+    conn.on('open', () => {
+      // Store connection
+      connectionsRef.current.set(conn.peer, conn)
+      
+      // Send intro message with user details
+      conn.send({
+        type: 'intro',
+        userName: userName,
+        peerId: peerRef.current?.id
+      })
+      
+      setIsConnected(true)
+      
+      // Update peer list
+      const updatedPeers = Array.from(connectionsRef.current.keys())
+      setPeers(updatedPeers)
+      
+      // Notify of new connection
+      const newMsg: Message = {
+        id: Math.random().toString(36).substring(2, 9),
+        senderId: 'system',
+        senderName: 'System',
+        content: `${conn.peer} has joined the channel`,
+        timestamp: Date.now(),
+        type: 'text'
+      }
+      
+      setMessages(prev => [...prev, newMsg])
+      
+      toast({
+        title: "Peer connected",
+        description: `Connected to ${conn.peer}`,
+      })
+    })
+    
+    conn.on('data', (data: any) => {
+      if (data.type === 'message') {
+        setMessages(prev => [...prev, data.message])
+      } else if (data.type === 'intro') {
+        // Update connection metadata with user name
+        const updatedConn = connectionsRef.current.get(conn.peer)
+        if (updatedConn) {
+          // We could add metadata here if needed
+        }
+        
+        // Update peer list
+        const updatedPeers = Array.from(connectionsRef.current.keys())
+        setPeers(updatedPeers)
+        
+        // Notify of new connection with user name
+        const newMsg: Message = {
+          id: Math.random().toString(36).substring(2, 9),
+          senderId: 'system',
+          senderName: 'System',
+          content: `${data.userName} (${conn.peer}) has joined the channel`,
+          timestamp: Date.now(),
+          type: 'text'
+        }
+        
+        setMessages(prev => [...prev, newMsg])
+      } else if (data.type === 'file-start') {
+        // Handle start of file transfer
+        toast({
+          title: "File transfer started",
+          description: `Receiving ${data.fileName} (${formatFileSize(data.fileSize)})`,
+        })
+      } else if (data.type === 'file-chunk') {
+        // Logic for receiving file chunks
+        // In a real app, you would combine chunks and handle file download
+      } else if (data.type === 'file-complete') {
+        // File transfer is complete
+        const fileMsg: Message = {
+          id: Math.random().toString(36).substring(2, 9),
+          senderId: conn.peer,
+          senderName: data.userName || 'Unknown',
+          content: `Sent a file: ${data.fileName}`,
+          timestamp: Date.now(),
+          type: 'file',
+          fileInfo: {
+            name: data.fileName,
+            size: data.fileSize,
+            type: data.fileType,
+            data: data.fileData
+          }
+        }
+        
+        setMessages(prev => [...prev, fileMsg])
+        
+        toast({
+          title: "File received",
+          description: `${data.fileName} has been received`,
+        })
+      }
+    })
+    
+    conn.on('close', () => {
+      // Remove connection
+      connectionsRef.current.delete(conn.peer)
+      
+      // Update peer list
+      const updatedPeers = Array.from(connectionsRef.current.keys())
+      setPeers(updatedPeers)
+      
+      // Notify of disconnection
+      const newMsg: Message = {
+        id: Math.random().toString(36).substring(2, 9),
+        senderId: 'system',
+        senderName: 'System',
+        content: `${conn.peer} has left the channel`,
+        timestamp: Date.now(),
+        type: 'text'
+      }
+      
+      setMessages(prev => [...prev, newMsg])
+      
+      toast({
+        title: "Peer disconnected",
+        description: `${conn.peer} has disconnected`,
+      })
+      
+      if (connectionsRef.current.size === 0 && connectionMode === 'join') {
+        setIsConnected(false)
+      }
+    })
+  }
+  
+  const sendMessage = () => {
+    if (!messageInput.trim()) return
+    
+    const newMessage: Message = {
+      id: Math.random().toString(36).substring(2, 9),
+      senderId: peerRef.current?.id || 'unknown',
+      senderName: userName,
+      content: messageInput,
+      timestamp: Date.now(),
+      type: 'text'
+    }
+    
+    // Add to local messages
+    setMessages(prev => [...prev, newMessage])
+    
+    // Send to all peers
+    connectionsRef.current.forEach(conn => {
+      conn.send({
+        type: 'message',
+        message: newMessage
+      })
+    })
+    
+    setMessageInput('')
+  }
+  
+  const handleFileSelect = () => {
+    fileInputRef.current?.click()
+  }
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files)
+      setSelectedFiles(prev => [...prev, ...filesArray])
+      
+      // For each file, create a message and send it
+      filesArray.forEach(file => {
+        const reader = new FileReader()
+        
+        reader.onload = (event) => {
+          if (event.target && event.target.result) {
+            const fileData = event.target.result
+            
+            // Create a message for the file, removing the "Sent a file: " prefix
+            const fileMsg: Message = {
+              id: Math.random().toString(36).substring(2, 9),
+              senderId: peerRef.current?.id || 'unknown',
+              senderName: userName,
+              content: '',  // Remove text about "Sent a file"
+              timestamp: Date.now(),
+              type: 'file',
+              fileInfo: {
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                data: fileData as ArrayBuffer
+              }
+            }
+            
+            // Add to local messages
+            setMessages(prev => [...prev, fileMsg])
+            
+            // Send to all peers
+            connectionsRef.current.forEach(conn => {
+              // Notify peers about file start
+              conn.send({
+                type: 'file-start',
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                userName: userName
+              })
+              
+              // Send the file data directly 
+              conn.send({
+                type: 'file-complete',
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                fileData: fileData,
+                userName: userName
+              })
+            })
+          }
+        }
+        
+        reader.readAsArrayBuffer(file)
+      })
+      
+      // Clear the input
+      e.target.value = ''
+    }
+  }
+  
+  const disconnectChannel = () => {
+    // Close all connections
+    connectionsRef.current.forEach(conn => {
+      conn.close()
+    })
+    
+    // Destroy peer
+    if (peerRef.current) {
+      peerRef.current.destroy()
+      peerRef.current = null
+    }
+    
+    // Reset state
+    setIsConnected(false)
+    setConnectionMode(null)
+    setChannelId('')
+    setPeers([])
+    connectionsRef.current = new Map()
+    
+    toast({
+      title: "Disconnected",
+      description: "You have left the channel",
+    })
+  }
+
+  // Channel discovery functions
+  const discoverChannels = () => {
+    setIsRefreshing(true)
+    
+    // Clear existing discovered channels older than 1 minute
+    setDiscoveredChannels(prev => 
+      prev.filter(channel => Date.now() - channel.timestamp < 60000)
+    )
+    
+    // Initialize discovery peer if it doesn't exist
+    if (!discoveryPeerRef.current) {
+      const discoveryPeer = new Peer(`discovery-${Math.random().toString(36).substring(2, 9)}`, {
+        debug: 1
+      })
+      
+      discoveryPeer.on('open', () => {
+        discoveryPeerRef.current = discoveryPeer
+        broadcastDiscoveryRequest()
+      })
+      
+      discoveryPeer.on('connection', (conn) => {
+        conn.on('open', () => {
+          conn.on('data', (data: any) => {
+            if (data.type === BroadcastMessageType.CHANNEL_RESPONSE) {
+              // Handle channel response
+              const newChannel: DiscoveredChannel = {
+                id: data.channelId,
+                hostName: data.hostName,
+                peerCount: data.peerCount,
+                timestamp: Date.now()
+              }
+              
+              setDiscoveredChannels(prev => {
+                // Check if this channel already exists
+                const exists = prev.some(channel => channel.id === newChannel.id)
+                if (exists) {
+                  // Update existing channel
+                  return prev.map(channel => 
+                    channel.id === newChannel.id ? newChannel : channel
+                  )
+                } else {
+                  // Add new channel
+                  return [...prev, newChannel]
+                }
+              })
+            }
+          })
+        })
+      })
+      
+      discoveryPeer.on('error', (err) => {
+        console.error('Discovery peer error:', err)
+        setIsRefreshing(false)
+      })
+    } else {
+      // Peer already exists, just broadcast discovery request
+      broadcastDiscoveryRequest()
+    }
+    
+    // Set timeout to end refresh state
+    setTimeout(() => {
+      setIsRefreshing(false)
+    }, 3000)
+  }
+  
+  const broadcastDiscoveryRequest = () => {
+    if (!discoveryPeerRef.current) return
+    
+    // Broadcast to some common channel IDs that hosts might be using
+    // In a real app, this could use UDP broadcast or multicast for proper discovery
+    for (let i = 0; i < 10; i++) {
+      try {
+        const conn = discoveryPeerRef.current.connect(`discovery-broadcast-${i}`, {
+          reliable: true
+        })
+        
+        conn.on('open', () => {
+          conn.send({
+            type: BroadcastMessageType.CHANNEL_DISCOVERY,
+            requesterId: discoveryPeerRef.current?.id
+          })
+          
+          // Close after sending request
+          setTimeout(() => {
+            conn.close()
+          }, 1000)
+        })
+      } catch (error) {
+        // Ignore connection errors during discovery
+      }
+    }
+  }
+  
+  const broadcastChannelAnnouncement = (channelId: string) => {
+    if (!peerRef.current) return
+    
+    // Listen for discovery requests
+    const discoveryId = `discovery-broadcast-${Math.floor(Math.random() * 10)}`
+    
+    // Create a discovery broadcast peer
+    const broadcastPeer = new Peer(discoveryId, {
+      debug: 1
+    })
+    
+    broadcastPeer.on('open', () => {
+      // This peer is just for receiving discovery requests
+      broadcastPeer.on('connection', (conn) => {
+        conn.on('open', () => {
+          conn.on('data', (data: any) => {
+            if (data.type === BroadcastMessageType.CHANNEL_DISCOVERY) {
+              // Respond to discovery request by connecting back to the requester
+              if (peerRef.current && data.requesterId) {
+                try {
+                  const responseConn = broadcastPeer.connect(data.requesterId, {
+                    reliable: true
+                  })
+                  
+                  responseConn.on('open', () => {
+                    // Send channel info
+                    responseConn.send({
+                      type: BroadcastMessageType.CHANNEL_RESPONSE,
+                      channelId: channelId,
+                      hostName: userName,
+                      peerCount: connectionsRef.current.size
+                    })
+                    
+                    // Close after sending response
+                    setTimeout(() => {
+                      responseConn.close()
+                    }, 1000)
+                  })
+                } catch (error) {
+                  // Ignore connection errors during discovery response
+                }
+              }
+            }
+          })
+        })
+      })
+    })
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {!isConnected ? (
+        <Tabs defaultValue="join" className="w-full">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+            <TabsTrigger value="host">Host Channel</TabsTrigger>
+            <TabsTrigger value="join">Join Channel</TabsTrigger>
+          </TabsList>
+          <TabsContent value="host" className="mt-4">
+            <HostChannel 
+              userName={userName} 
+              onUserNameChange={handleUserNameChange}
+              onHost={handleHostChannel} 
+            />
+          </TabsContent>
+          <TabsContent value="join" className="mt-4">
+            <JoinChannel 
+              userName={userName}
+              onUserNameChange={handleUserNameChange}
+              onJoin={handleJoinChannel}
+              discoveredChannels={discoveredChannels}
+              onRefreshChannels={discoverChannels}
+              isRefreshing={isRefreshing}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="flex flex-col h-full">
+          <div className="flex justify-between items-center mb-4 p-2 border-b">
+            <div className="flex items-center gap-2">
+              <div className="rounded-full bg-green-500 w-2 h-2"></div>
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {connectionMode === 'host' ? 'Hosting' : 'Joined'}: {channelId}
+                </h3>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Users className="h-3.5 w-3.5 mr-1" />
+                  <span>{peers.length} connected</span>
+                </div>
+              </div>
+            </div>
+            <Button 
+              onClick={disconnectChannel} 
+              variant="ghost" 
+              size="sm"
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Leave
+            </Button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto mb-4 border rounded-md p-4">
+            <MessageList messages={messages} currentUserId={peerRef.current?.id || ''} />
+          </div>
+          
+          <div className="flex gap-2">
+            <Input
+              placeholder="Type your message..."
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+              className="flex-1"
+            />
+            <Button onClick={handleFileSelect} variant="outline">
+              <Image className="h-4 w-4 mr-2" />
+              Files
+            </Button>
+            <input
+              type="file"
+              multiple
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <Button onClick={sendMessage}>
+              <SendHorizontal className="h-4 w-4 mr-2" />
+              Send
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

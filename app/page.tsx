@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import JsonViewer from './components/json-viewer'
 import SourceCodeTyper from './components/source-code-typer'
+import ShareChannel from './components/share-channel/share-channel'
 
 export default function Dashboard() {
   return (
@@ -42,6 +43,7 @@ export default function Dashboard() {
               <TabsTrigger value="binary-visualization">Binary Visualization Tool</TabsTrigger>
               <TabsTrigger value="json-viewer">JSON Viewer</TabsTrigger>
               <TabsTrigger value="code-typer">Code Typer</TabsTrigger>
+              <TabsTrigger value="share-channel">Share Channel</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="json-to-csharp" className="space-y-4">
@@ -145,6 +147,19 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <SourceCodeTyper />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="share-channel" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Share Channel</CardTitle>
+                <CardDescription>
+                  Create or join a channel to share messages, images, and files with peers over the local network
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="min-h-[400px]">
+                <ShareChannel />
               </CardContent>
             </Card>
           </TabsContent>
