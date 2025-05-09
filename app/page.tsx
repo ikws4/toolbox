@@ -1,7 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import JsonToCSharpConverter from './components/json-to-csharp-converter'
 import GithubRepoStats from './components/github-repo-stats'
 import DiffTool from './components/diff-tool'
@@ -10,164 +11,246 @@ import UuidGenerator from './components/uuid-generator'
 import BinaryVisualizationTool from './components/binary-visualization-tool'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Menu, Maximize2, Minimize2, X, 
+  Code, Github, FileTerminal, ImageIcon, FileBadge, TreePine, FileJson, Terminal, Share2 } from "lucide-react"
 import JsonViewer from './components/json-viewer'
 import SourceCodeTyper from './components/source-code-typer'
 import ShareChannel from './components/share-channel/share-channel'
+import { cn } from "@/lib/utils"
+
+// Define tool configuration for easy management
+const tools = [
+	{ 
+		id: "json-to-csharp", 
+		title: "JSON to C#", 
+		description: "Convert JSON objects to C# classes", 
+		component: JsonToCSharpConverter,
+		icon: Code
+	},
+	{ 
+		id: "github-stats", 
+		title: "GitHub Stats", 
+		description: "View statistics for a GitHub repository, including stars and recent release downloads", 
+		component: GithubRepoStats,
+		icon: Github
+	},
+	{ 
+		id: "diff-tool", 
+		title: "Diff Tool", 
+		description: "Compare two texts and see the differences", 
+		component: DiffTool,
+		icon: FileTerminal
+	},
+	{ 
+		id: "image-split", 
+		title: "Image Split", 
+		description: "Split an image into a specified number of rows and columns", 
+		component: ImageSplitTool,
+		icon: ImageIcon
+	},	{ 
+		id: "uuid-generator", 
+		title: "UUID Generator", 
+		description: "Generate UUIDs quickly and easily", 
+		component: UuidGenerator,
+		icon: FileBadge
+	},
+	{ 
+		id: "binary-visualization", 
+		title: "Binary Visualization", 
+		description: "Visualize binary trees from BFS order data", 
+		component: BinaryVisualizationTool,
+		icon: TreePine
+	},
+	{ 
+		id: "json-viewer", 
+		title: "JSON Viewer", 
+		description: "View and format JSON data", 
+		component: JsonViewer,
+		icon: FileJson
+	},
+	{ 
+		id: "code-typer", 
+		title: "Code Typer", 
+		description: "Create typing effect presentations for your source code", 
+		component: SourceCodeTyper,
+		icon: Terminal
+	},
+	{ 
+		id: "share-channel", 
+		title: "Share Channel", 
+		description: "Create or join a channel to share messages, images, and files with peers over the local network", 
+		component: ShareChannel,
+		icon: Share2
+	},
+];
 
 export default function Dashboard() {
-  return (
-    <div className="flex-col md:flex">
-      <div className="border-b">
-        <div className="flex h-16 items-center px-4 justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Toolbox</h1>
-          <div className="flex items-center space-x-4">
-            <ThemeToggle />
-            <Button onClick={() => window.history.back()} variant="outline" size="icon">
-              <X className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <X className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Close</span>
-            </Button>
-          </div>
-        </div>
-      </div>
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <Tabs defaultValue="json-to-csharp" className="space-y-4">
-          <div className="overflow-x-auto">
-            <TabsList>
-              <TabsTrigger value="json-to-csharp">JSON to C# Converter</TabsTrigger>
-              <TabsTrigger value="github-stats">GitHub Repo Stats</TabsTrigger>
-              <TabsTrigger value="diff-tool">Diff Tool</TabsTrigger>
-              <TabsTrigger value="image-split">Image Split Tool</TabsTrigger>
-              <TabsTrigger value="uuid-generator">UUID Generator</TabsTrigger>
-              <TabsTrigger value="binary-visualization">Binary Visualization Tool</TabsTrigger>
-              <TabsTrigger value="json-viewer">JSON Viewer</TabsTrigger>
-              <TabsTrigger value="code-typer">Code Typer</TabsTrigger>
-              <TabsTrigger value="share-channel">Share Channel</TabsTrigger>
-            </TabsList>
-          </div>
-          <TabsContent value="json-to-csharp" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>JSON to C# Converter</CardTitle>
-                <CardDescription>
-                  Convert JSON objects to C# classes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <JsonToCSharpConverter />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="github-stats" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>GitHub Repository Statistics</CardTitle>
-                <CardDescription>
-                  View statistics for a GitHub repository, including stars and recent release downloads
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <GithubRepoStats />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="diff-tool" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Text Comparison Tool</CardTitle>
-                <CardDescription>
-                  Compare two texts and see the differences
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DiffTool />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="image-split" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Image Split Tool</CardTitle>
-                <CardDescription>
-                  Split an image into a specified number of rows and columns
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageSplitTool />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="uuid-generator" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>UUID Generator</CardTitle>
-                <CardDescription>
-                  Generate UUIDs quickly and easily
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <UuidGenerator />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="binary-visualization" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Binary Visualization Tool</CardTitle>
-                <CardDescription>
-                  Visualize binary trees from BFS order data
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <BinaryVisualizationTool />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="json-viewer" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>JSON Viewer</CardTitle>
-                <CardDescription>
-                  View and format JSON data
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <JsonViewer />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="code-typer" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Source Code Typing Effect</CardTitle>
-                <CardDescription>
-                  Create typing effect presentations for your source code
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SourceCodeTyper />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="share-channel" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Share Channel</CardTitle>
-                <CardDescription>
-                  Create or join a channel to share messages, images, and files with peers over the local network
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="min-h-[400px]">
-                <ShareChannel />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-      <footer className="text-center py-4">
-        &copy; {new Date().getFullYear()} ikws4. All rights reserved.
-      </footer>
-    </div>
-  )
+	const [activeToolId, setActiveToolId] = useState<string>("json-to-csharp");
+	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
+	const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+	const [fullscreenMode, setFullscreenMode] = useState<boolean>(false);
+	
+	const activeTool = tools.find(tool => tool.id === activeToolId);
+
+	const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
+	const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
+	const toggleFullscreen = () => setFullscreenMode(!fullscreenMode);
+
+	return (
+		<div className="flex flex-col h-screen bg-background">
+			{/* Top header bar - visible when not in fullscreen mode */}
+			{!fullscreenMode && (				<header className="border-b flex items-center justify-between h-16 px-4 bg-background z-10">					<div className="flex items-center gap-2">						<Button 
+							variant="ghost" 
+							size="icon" 
+							className="md:hidden" 
+							onClick={toggleMobileMenu}
+						>
+							<Menu className="h-5 w-5" />
+							<span className="sr-only">Toggle menu</span>
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="hidden md:flex h-9 w-9"
+							onClick={toggleSidebar}
+						>
+							{sidebarCollapsed ? (
+								<ChevronRight className="h-5 w-5" />
+							) : (
+								<ChevronLeft className="h-5 w-5" />
+							)}
+						</Button>
+								{activeTool && (
+							<div className="flex items-center">
+								<activeTool.icon className="h-5 w-5 mr-2" />
+								<h1 className="text-xl font-bold tracking-tight">{activeTool.title}</h1>
+							</div>
+						)}
+					</div>
+					
+					<div className="flex items-center space-x-2">
+						<Button 
+							variant="outline" 
+							size="icon"
+							onClick={toggleFullscreen}
+							className="ml-auto"
+						>
+							<Maximize2 className="h-[1.2rem] w-[1.2rem]" />
+							<span className="sr-only">Enter fullscreen</span>
+						</Button>
+						<ThemeToggle />
+						<Button 
+							onClick={() => window.history.back()} 
+							variant="outline" 
+							size="icon"
+							className="hidden md:flex"
+						>
+							<X className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+							<X className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+							<span className="sr-only">Close</span>
+						</Button>
+					</div>
+				</header>
+			)}
+
+			<div className="flex flex-1 overflow-hidden">
+				{/* Sidebar for tool selection - hidden in fullscreen mode */}
+				{!fullscreenMode && (					<aside 
+						className={cn(
+							"border-r shrink-0 bg-background flex flex-col transition-all duration-300 ease-in-out z-10",
+							sidebarCollapsed ? "w-0 md:w-16 overflow-hidden" : "w-full md:w-64",
+							mobileMenuOpen ? "absolute inset-y-0 left-0 z-50 w-64" : "hidden md:flex"
+						)}
+					>						<div className="p-4 overflow-y-auto flex-1 space-y-4">
+							{/* Title for mobile menu */}
+							{mobileMenuOpen && (
+								<div className="flex items-center justify-between mb-2">
+									<h2 className="text-lg font-semibold">Tools</h2>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="md:hidden h-8 w-8"
+										onClick={() => setMobileMenuOpen(false)}
+									>
+										<X className="h-4 w-4" />
+									</Button>
+								</div>
+							)}
+							<nav className="space-y-1">
+								{tools.map((tool) => (									<Button
+										key={tool.id}
+										variant={activeToolId === tool.id ? "secondary" : "ghost"}
+										className={cn(
+											"w-full flex items-center text-left",
+											sidebarCollapsed && !mobileMenuOpen ? "justify-center p-2" : "justify-start pl-2 pr-3 py-2 h-auto"
+										)}
+										onClick={() => {
+											setActiveToolId(tool.id);
+											setMobileMenuOpen(false);
+										}}
+									><tool.icon className={cn(
+											"h-5 w-5 flex-shrink-0",
+											activeToolId === tool.id ? "text-secondary-foreground" : "text-muted-foreground"
+										)} />
+										{(!sidebarCollapsed || mobileMenuOpen) && (
+											<span className="ml-2 font-medium">{tool.title}</span>
+										)}
+									</Button>
+								))}
+							</nav>
+						</div>
+					</aside>
+				)}
+				
+				{/* Mobile overlay when sidebar is open */}
+				{mobileMenuOpen && (
+					<div 
+						className="fixed inset-0 bg-black/50 z-40 md:hidden"
+						onClick={() => setMobileMenuOpen(false)}
+					/>
+				)}
+
+				{/* Main content area */}
+				<main className="flex-1 overflow-auto bg-background relative">
+					{/* Fullscreen toggle button for easy exit */}
+					{fullscreenMode && (
+						<Button 
+							variant="outline" 
+							size="icon"
+							onClick={toggleFullscreen}
+							className="absolute top-4 right-4 z-50"
+						>
+							<Minimize2 className="h-[1.2rem] w-[1.2rem]" />
+							<span className="sr-only">Exit fullscreen</span>
+						</Button>
+					)}
+					
+					<Tabs value={activeToolId} className="h-full flex flex-col">
+						{tools.map((tool) => (							<TabsContent 
+								key={tool.id} 
+								value={tool.id} 
+								className="flex-1 p-0 data-[state=active]:flex data-[state=active]:flex-col h-full"
+							>								<div className={cn(
+									"flex-1 flex flex-col h-full", 
+									!fullscreenMode && "p-2 md:p-3"
+								)}>
+									<div className="flex-1 overflow-auto">
+										{/* Dynamic component rendering */}
+										{activeTool?.id === tool.id && <tool.component />}
+									</div>
+								</div>
+							</TabsContent>
+						))}
+					</Tabs>
+				</main>
+			</div>
+
+			{/* Footer - hidden in fullscreen mode */}
+			{!fullscreenMode && (
+				<footer className="border-t text-center py-3 px-4 text-sm text-muted-foreground">
+					&copy; {new Date().getFullYear()} ikws4. All rights reserved.
+				</footer>
+			)}
+		</div>
+	)
 }
