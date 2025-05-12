@@ -7,12 +7,10 @@ import JsonToCSharpConverter from './components/json-to-csharp-converter'
 import GithubRepoStats from './components/github-repo-stats'
 import DiffTool from './components/diff-tool'
 import ImageSplitTool from './components/image-split-tool'
-import UuidGenerator from './components/uuid-generator'
-import BinaryVisualizationTool from './components/binary-visualization-tool'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, Menu, Maximize2, Minimize2, X, 
-  Code, Github, FileTerminal, ImageIcon, FileBadge, TreePine, FileJson, Terminal, Share2 } from "lucide-react"
+  Code, Github, FileTerminal, ImageIcon, FileBadge, FileJson, Terminal, Share2 } from "lucide-react"
 import JsonViewer from './components/json-viewer'
 import SourceCodeTyper from './components/source-code-typer'
 import ShareChannel from './components/share-channel/share-channel'
@@ -47,19 +45,6 @@ const tools = [
 		description: "Split an image into a specified number of rows and columns", 
 		component: ImageSplitTool,
 		icon: ImageIcon
-	},	{ 
-		id: "uuid-generator", 
-		title: "UUID Generator", 
-		description: "Generate UUIDs quickly and easily", 
-		component: UuidGenerator,
-		icon: FileBadge
-	},
-	{ 
-		id: "binary-visualization", 
-		title: "Binary Visualization", 
-		description: "Visualize binary trees from BFS order data", 
-		component: BinaryVisualizationTool,
-		icon: TreePine
 	},
 	{ 
 		id: "json-viewer", 
