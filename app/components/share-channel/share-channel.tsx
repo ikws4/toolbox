@@ -84,6 +84,28 @@ export default function ShareChannel() {
       }
     }
   }, [isConnected])
+  // Synchronize connection state when connections change
+  useEffect(() => {
+    // Get current connection count
+    const connectionCount = connectionsRef.current.size;
+    console.log("Connection sync effect running - connections:", connectionCount, "mode:", connectionMode, "isConnected:", isConnected);
+    
+    // If we're in any mode and have at least one connection, we should be connected
+    if (connectionCount > 0) {
+      console.log("Connection sync effect: We have connections, ensuring isConnected is true");
+      setIsConnected(true);
+    }
+    // If we're in join mode and have no connections, we're disconnected
+    else if (connectionMode === 'join' && connectionCount === 0 && isConnected) {
+      console.log("Connection sync effect: No connections in join mode, setting isConnected to false");
+      setIsConnected(false);
+    }
+    // If we're in host mode, we're always connected once the peer is created
+    else if (connectionMode === 'host' && peerRef.current && !isConnected) {
+      console.log("Connection sync effect: In host mode with peer but not connected, fixing state");
+      setIsConnected(true);
+    }
+  }, [peers, connectionMode, isConnected]);
 
   const handleUserNameChange = (newName: string) => {
     setUserName(newName)
@@ -101,19 +123,21 @@ export default function ShareChannel() {
         ]
       }
     })
-    
-    peer.on('open', (id) => {
+      peer.on('open', (id) => {
       toast({
         title: "Channel created",
         description: `Your channel ID is ${id}`,
       })
+      console.log("Host channel created with ID:", id)
       setIsConnected(true)
       peerRef.current = peer
 
       // Broadcast channel availability for discovery
       broadcastChannelAnnouncement(id)
     })
-      peer.on('connection', (conn) => {
+    
+    peer.on('connection', (conn) => {
+      console.log("Host received connection from:", conn.peer)
       setupConnection(conn)
     })
       peer.on('error', (err) => {
@@ -157,8 +181,7 @@ export default function ShareChannel() {
           peer.destroy()
         }
       }, 10000)
-      
-      peer.on('open', () => {
+        peer.on('open', () => {
         try {
           console.log("Peer opened, attempting to connect to:", hostId)
           const conn = peer.connect(hostId, {
@@ -166,17 +189,29 @@ export default function ShareChannel() {
             serialization: 'json'
           })
           
+          // Store the peer reference immediately (before connection complete)
+          // This ensures connection events are properly captured
+          peerRef.current = peer
+          
           // Connection success events
           conn.on('open', () => {
             // Clear the timeout since connection succeeded
             clearTimeout(connectionTimeout)
             console.log("Connection opened to host:", hostId)
             
-            // Only store the peer reference once the connection is successful
-            peerRef.current = peer
+            console.log("Setting up joiner peer connection", "Peer:", peer.id, "Host:", hostId)
             setChannelId(hostId)
             setConnectionMode('join')
+            
+            // Setup connection and explicitly set connected state to true
             setupConnection(conn)
+            
+            // IMPORTANT: Force connected state to true after a short delay
+            // This ensures the UI updates even if other state changes cause batched updates
+            setTimeout(() => {
+              setIsConnected(true)
+              console.log("Explicitly setting isConnected to true after joiner setup (with delay)")
+            }, 100)
           })
           
           // Connection failure events
@@ -196,15 +231,29 @@ export default function ShareChannel() {
             title: "Connection error",
             description: "Failed to establish connection",
             variant: "destructive"
-          })
-        }
-      })      
+          })        }
+      })
+      
       peer.on('error', (err) => {
         clearTimeout(connectionTimeout)
         console.error("Peer error:", err)
+        
+        // Check if this is a specific type of connection error
+        let errorMessage = handlePeerConnectionError(err);
+        
+        // If the peer couldn't connect, ensure we reset the state
+        if (err.type === 'peer-unavailable' || err.type === 'unavailable-id') {
+          // Make sure we clean up any partial state
+          if (peerRef.current === peer) {
+            peerRef.current = null;
+          }
+          setIsConnected(false);
+          setConnectionMode(null);
+        }
+        
         toast({
           title: "Connection error",
-          description: handlePeerConnectionError(err),
+          description: errorMessage,
           variant: "destructive"
         })
       })
@@ -233,15 +282,41 @@ export default function ShareChannel() {
         toast({
           title: "Connection error",
           description: "Failed to establish connection",
-          variant: "destructive"
-        })      }
+          variant: "destructive"        })
+      }
     }
   }
-  
-  const setupConnection = (conn: DataConnection) => {
-    conn.on('open', () => {
-      // Store connection
-      connectionsRef.current.set(conn.peer, conn)
+    const setupConnection = (conn: DataConnection) => {
+    console.log("Setting up connection for peer:", conn.peer, "Connection state:", conn.open)
+    
+    // Add the connection to our connections map immediately
+    connectionsRef.current.set(conn.peer, conn)
+    
+    // Update peer list immediately
+    const updatedPeers = Array.from(connectionsRef.current.keys())
+    console.log("Updating peers list immediately:", updatedPeers)
+    setPeers(updatedPeers)
+    
+    // If the connection is already open, we need to handle it immediately
+    if (conn.open) {
+      console.log("Connection is already open, setting isConnected immediately")
+      // Set connected state
+      setIsConnected(true)
+      
+      // Send intro message immediately if connection is already open
+      conn.send({
+        type: 'intro',
+        userName: userName,
+        peerId: peerRef.current?.id
+      })
+    }
+      conn.on('open', () => {
+      console.log("Connection open event triggered for:", conn.peer)
+      
+      // Make sure the connection is in the map (should already be from above)
+      if (!connectionsRef.current.has(conn.peer)) {
+        connectionsRef.current.set(conn.peer, conn)
+      }
       
       // Send intro message with user details
       conn.send({
@@ -250,10 +325,14 @@ export default function ShareChannel() {
         peerId: peerRef.current?.id
       })
       
+      console.log("Setting isConnected to true for peer:", conn.peer)
+      
+      // Force to connected state with timeout to ensure UI updates
       setIsConnected(true)
       
       // Update peer list
       const updatedPeers = Array.from(connectionsRef.current.keys())
+      console.log("Updated peers list after open:", updatedPeers)
       setPeers(updatedPeers)
       
       // Notify of new connection
@@ -623,8 +702,8 @@ export default function ShareChannel() {
           })
         })
       })
-    })
-  }
+    })  }
+  
   return (
     <div className="h-full flex flex-col">
       {!isConnected ? (
