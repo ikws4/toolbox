@@ -9,12 +9,13 @@ import DiffTool from './components/diff-tool'
 import ImageSplitTool from './components/image-split-tool'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Menu, Maximize2, Minimize2, X, 
-  Code, Github, FileTerminal, ImageIcon, FileBadge, FileJson, Terminal, Share2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Menu, X, 
+  Code, Github, FileTerminal, ImageIcon, FileBadge, FileJson, Terminal, Share2, Loader2 } from "lucide-react"
 import JsonViewer from './components/json-viewer'
 import SourceCodeTyper from './components/source-code-typer'
 import ShareChannel from './components/share-channel/share-channel'
 import { cn } from "@/lib/utils"
+import { useIsClient } from "@/lib/hooks"
 
 // Define tool configuration for easy management
 const tools = [
@@ -70,59 +71,89 @@ const tools = [
 ];
 
 export default function Dashboard() {
+	// Using useState with a function to initialize from localStorage
+	// This pattern ensures we only try to access localStorage after mounting
 	const [activeToolId, setActiveToolId] = useState<string>("json-to-csharp");
 	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-	const [fullscreenMode, setFullscreenMode] = useState<boolean>(false);
+	const [isLoading, setIsLoading] = useState(true);
 	
-	const activeTool = tools.find(tool => tool.id === activeToolId);
+	// Find the active tool based on ID
+	const activeTool = !isLoading ? tools.find(tool => tool.id === activeToolId) : null;
+
+	// Load from localStorage after mount
+	useEffect(() => {
+		// Try to load the saved preference
+		try {
+			const savedToolId = localStorage.getItem('lastOpenToolId');
+			if (savedToolId && tools.some(tool => tool.id === savedToolId)) {
+				setActiveToolId(savedToolId);
+			}
+		} catch (e) {
+			console.error("Failed to load tool preference:", e);
+		}
+		
+		// Add a small delay before showing content to prevent flickering
+		const timer = setTimeout(() => {
+			setIsLoading(false);
+		}, 200);
+		
+		return () => clearTimeout(timer);
+	}, []);
+	
+	// Save to localStorage whenever activeToolId changes
+	useEffect(() => {
+		// Only save after initial loading is complete
+		if (!isLoading) {
+			try {
+				localStorage.setItem('lastOpenToolId', activeToolId);
+			} catch (e) {
+				console.error("Failed to save tool preference:", e);
+			}
+		}
+	}, [activeToolId, isLoading]);
 
 	const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 	const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
-	const toggleFullscreen = () => setFullscreenMode(!fullscreenMode);
-
 	return (
-		<div className="flex flex-col h-screen bg-background">
-			{/* Top header bar - visible when not in fullscreen mode */}
-			{!fullscreenMode && (				<header className="border-b flex items-center justify-between h-16 px-4 bg-background z-10">					<div className="flex items-center gap-2">						<Button 
-							variant="ghost" 
-							size="icon" 
-							className="md:hidden" 
-							onClick={toggleMobileMenu}
-						>
-							<Menu className="h-5 w-5" />
-							<span className="sr-only">Toggle menu</span>
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="hidden md:flex h-9 w-9"
-							onClick={toggleSidebar}
-						>
-							{sidebarCollapsed ? (
-								<ChevronRight className="h-5 w-5" />
-							) : (
-								<ChevronLeft className="h-5 w-5" />
+		<div className="flex flex-col h-screen bg-background">			{/* Top header bar */}			<header className="border-b flex items-center justify-between h-16 px-4 bg-background z-10">
+				<div className="flex items-center gap-2">
+					{!isLoading ? (
+						<>
+							<Button 
+								variant="ghost" 
+								size="icon" 
+								className="md:hidden" 
+								onClick={toggleMobileMenu}
+							>
+								<Menu className="h-5 w-5" />
+								<span className="sr-only">Toggle menu</span>
+							</Button>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="hidden md:flex h-9 w-9"
+								onClick={toggleSidebar}
+							>
+								{sidebarCollapsed ? (
+									<ChevronRight className="h-5 w-5" />
+								) : (
+									<ChevronLeft className="h-5 w-5" />
+								)}
+							</Button>
+							{activeTool && (
+								<div className="flex items-center">
+									<activeTool.icon className="h-5 w-5 mr-2" />
+									<h1 className="text-xl font-bold tracking-tight">{activeTool.title}</h1>
+								</div>
 							)}
-						</Button>
-								{activeTool && (
-							<div className="flex items-center">
-								<activeTool.icon className="h-5 w-5 mr-2" />
-								<h1 className="text-xl font-bold tracking-tight">{activeTool.title}</h1>
-							</div>
-						)}
-					</div>
-					
-					<div className="flex items-center space-x-2">
-						<Button 
-							variant="outline" 
-							size="icon"
-							onClick={toggleFullscreen}
-							className="ml-auto"
-						>
-							<Maximize2 className="h-[1.2rem] w-[1.2rem]" />
-							<span className="sr-only">Enter fullscreen</span>
-						</Button>
+						</>
+					) : (
+						// Empty space placeholder during loading to maintain layout
+						<div className="h-9"></div>
+					)}
+				</div>
+							<div className="flex items-center space-x-2">
 						<ThemeToggle />
 						<Button 
 							onClick={() => window.history.back()} 
@@ -135,18 +166,16 @@ export default function Dashboard() {
 							<span className="sr-only">Close</span>
 						</Button>
 					</div>
-				</header>
-			)}
-
-			<div className="flex flex-1 overflow-hidden">
-				{/* Sidebar for tool selection - hidden in fullscreen mode */}
-				{!fullscreenMode && (					<aside 
+				</header>			<div className="flex flex-1 overflow-hidden">
+				{/* Sidebar for tool selection - hidden during loading */}
+				{!isLoading && (
+					<aside 
 						className={cn(
 							"border-r shrink-0 bg-background flex flex-col transition-all duration-300 ease-in-out z-10",
 							sidebarCollapsed ? "w-0 md:w-16 overflow-hidden" : "w-full md:w-64",
 							mobileMenuOpen ? "absolute inset-y-0 left-0 z-50 w-64" : "hidden md:flex"
 						)}
-					>						<div className="p-4 overflow-y-auto flex-1 space-y-4">
+					><div className="p-4 overflow-y-auto flex-1 space-y-4">
 							{/* Title for mobile menu */}
 							{mobileMenuOpen && (
 								<div className="flex items-center justify-between mb-2">
@@ -168,8 +197,7 @@ export default function Dashboard() {
 										className={cn(
 											"w-full flex items-center text-left",
 											sidebarCollapsed && !mobileMenuOpen ? "justify-center p-2" : "justify-start pl-2 pr-3 py-2 h-auto"
-										)}
-										onClick={() => {
+										)}										onClick={() => {
 											setActiveToolId(tool.id);
 											setMobileMenuOpen(false);
 										}}
@@ -182,60 +210,49 @@ export default function Dashboard() {
 										)}
 									</Button>
 								))}
-							</nav>
-						</div>
+							</nav>						</div>
 					</aside>
 				)}
 				
-				{/* Mobile overlay when sidebar is open */}
-				{mobileMenuOpen && (
+				{/* Mobile overlay when sidebar is open - hidden during loading */}
+				{!isLoading && mobileMenuOpen && (
 					<div 
 						className="fixed inset-0 bg-black/50 z-40 md:hidden"
 						onClick={() => setMobileMenuOpen(false)}
 					/>
-				)}
-
-				{/* Main content area */}
-				<main className="flex-1 overflow-auto bg-background relative">
-					{/* Fullscreen toggle button for easy exit */}
-					{fullscreenMode && (
-						<Button 
-							variant="outline" 
-							size="icon"
-							onClick={toggleFullscreen}
-							className="absolute top-4 right-4 z-50"
-						>
-							<Minimize2 className="h-[1.2rem] w-[1.2rem]" />
-							<span className="sr-only">Exit fullscreen</span>
-						</Button>
-					)}
-					
-					<Tabs value={activeToolId} className="h-full flex flex-col">
-						{tools.map((tool) => (							<TabsContent 
-								key={tool.id} 
-								value={tool.id} 
-								className="flex-1 p-0 data-[state=active]:flex data-[state=active]:flex-col h-full"
-							>								<div className={cn(
-									"flex-1 flex flex-col h-full", 
-									!fullscreenMode && "p-2 md:p-3"
-								)}>
-									<div className="flex-1 overflow-auto">
-										{/* Dynamic component rendering */}
-										{activeTool?.id === tool.id && <tool.component />}
+				)}{/* Main content area */}				<main className="flex-1 overflow-auto bg-background">
+					{isLoading ? (
+						<div className="flex items-center justify-center h-full">
+							<div className="flex flex-col items-center gap-2">
+								<Loader2 className="h-8 w-8 animate-spin text-primary" />
+								<p className="text-sm text-muted-foreground">Loading your preferences...</p>
+							</div>
+						</div>
+					) : (
+						<Tabs value={activeToolId} className="h-full flex flex-col">
+							{tools.map((tool) => (
+								<TabsContent 
+									key={tool.id} 
+									value={tool.id} 
+									className="flex-1 p-0 data-[state=active]:flex data-[state=active]:flex-col h-full"
+								>
+									<div className="flex-1 flex flex-col h-full p-2 md:p-3">
+										<div className="flex-1 overflow-auto">
+											{/* Dynamic component rendering */}
+											{activeTool?.id === tool.id && <tool.component />}
+										</div>
 									</div>
-								</div>
-							</TabsContent>
-						))}
-					</Tabs>
+								</TabsContent>
+							))}
+						</Tabs>
+					)}
 				</main>
 			</div>
 
-			{/* Footer - hidden in fullscreen mode */}
-			{!fullscreenMode && (
-				<footer className="border-t text-center py-3 px-4 text-sm text-muted-foreground">
-					&copy; {new Date().getFullYear()} ikws4. All rights reserved.
-				</footer>
-			)}
+			{/* Footer */}
+			<footer className="border-t text-center py-3 px-4 text-sm text-muted-foreground">
+				&copy; {new Date().getFullYear()} ikws4. All rights reserved.
+			</footer>
 		</div>
 	)
 }
