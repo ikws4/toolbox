@@ -90,15 +90,25 @@ export default function JsonToCSharpConverter() {
       })
     }
   }
-
   return (
     <div className="space-y-4">
-      <Textarea
-        placeholder="Paste your JSON here"
-        value={jsonInput}
-        onChange={(e) => setJsonInput(e.target.value)}
-        className="min-h-[200px] custom-scrollbar"
-      />
+      <div className="space-y-2">
+        <Textarea
+          placeholder="Paste your JSON here"
+          value={jsonInput}
+          onChange={(e) => setJsonInput(e.target.value)}
+          className="min-h-[200px] custom-scrollbar"
+        />
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>Characters: {jsonInput.length.toLocaleString()}</span>
+          {jsonInput.length > 0 && (
+            <span>
+              Lines: {jsonInput.split('\n').length} | 
+              Non-whitespace: {jsonInput.replace(/\s/g, '').length.toLocaleString()}
+            </span>
+          )}
+        </div>
+      </div>
       <Button onClick={convertJsonToCSharp}>Convert</Button>
       <div className="relative">
         <Textarea
