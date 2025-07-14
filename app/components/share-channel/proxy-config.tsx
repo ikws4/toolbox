@@ -77,7 +77,7 @@ export const detectProxyNeeds = async (): Promise<boolean> => {
 
 // Build PeerJS ICE configuration based on proxy settings
 export const buildPeerJsConfig = (proxySettings: ProxySettings): any => {
-  let iceServers = [...proxySettings.iceServers]
+  const iceServers = [...proxySettings.iceServers]
   
   // Add TURN server configuration if enabled
   if (proxySettings.turnEnabled && proxySettings.proxyUrl) {

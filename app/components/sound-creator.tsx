@@ -104,7 +104,7 @@ export default function SoundCreator() {
       console.error('Error executing code:', error)
       toast({
         title: "Code Error",
-        description: `Error executing your code: ${error.message}`,
+        description: `Error executing your code: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
       })
     }
@@ -140,7 +140,14 @@ export default function SoundCreator() {
       const dest = toneRef.current.context.createMediaStreamDestination()
       toneRef.current.Destination.connect(dest)
       
-      const mediaRecorder = new MediaRecorder(dest.stream)
+      // Check if WAV is supported, otherwise fall back to webm
+      const mimeType = MediaRecorder.isTypeSupported('audio/wav') 
+        ? 'audio/wav' 
+        : MediaRecorder.isTypeSupported('audio/webm') 
+          ? 'audio/webm'
+          : 'audio/wav' // fallback, will be converted later
+      
+      const mediaRecorder = new MediaRecorder(dest.stream, { mimeType })
       recordedChunks.current = []
       
       mediaRecorder.ondataavailable = (event) => {
@@ -149,9 +156,17 @@ export default function SoundCreator() {
         }
       }
       
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks.current, { type: 'audio/webm' })
-        downloadRecording(blob)
+      mediaRecorder.onstop = async () => {
+        const recordedBlob = new Blob(recordedChunks.current, { type: mimeType })
+        
+        // If we recorded in webm, convert to WAV
+        if (mimeType === 'audio/webm') {
+          const wavBlob = await convertToWav(recordedBlob)
+          downloadRecording(wavBlob)
+        } else {
+          downloadRecording(recordedBlob)
+        }
+        
         setIsRecording(false)
       }
       
@@ -172,7 +187,7 @@ export default function SoundCreator() {
       console.error('Error starting recording:', error)
       toast({
         title: "Recording Error",
-        description: `Failed to start recording: ${error.message}`,
+        description: `Failed to start recording: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
       })
     }
@@ -190,7 +205,7 @@ export default function SoundCreator() {
     const a = document.createElement('a')
     a.style.display = 'none'
     a.href = url
-    a.download = `tone-recording-${new Date().toISOString().slice(0, 19)}.webm`
+    a.download = `tone-recording-${new Date().toISOString().slice(0, 19)}.wav`
     document.body.appendChild(a)
     a.click()
     URL.revokeObjectURL(url)
@@ -208,6 +223,88 @@ export default function SoundCreator() {
       title: "Reset",
       description: "Code has been reset to default example",
     })
+  }
+
+  // Function to convert webm blob to WAV format
+  const convertToWav = async (webmBlob: Blob): Promise<Blob> => {
+    try {
+      // Create audio context for processing
+      const audioContext = new AudioContext()
+      
+      // Convert blob to array buffer
+      const arrayBuffer = await webmBlob.arrayBuffer()
+      
+      // Decode the audio data
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+      
+      // Create WAV blob from audio buffer
+      const wavBlob = audioBufferToWav(audioBuffer)
+      
+      audioContext.close()
+      return wavBlob
+    } catch (error) {
+      console.error('Error converting to WAV:', error)
+      // Return original blob if conversion fails
+      return webmBlob
+    }
+  }
+
+  // Function to convert AudioBuffer to WAV blob
+  const audioBufferToWav = (audioBuffer: AudioBuffer): Blob => {
+    const numberOfChannels = audioBuffer.numberOfChannels
+    const sampleRate = audioBuffer.sampleRate
+    const length = audioBuffer.length * numberOfChannels * 2 + 44
+    
+    const buffer = new ArrayBuffer(length)
+    const view = new DataView(buffer)
+    
+    // WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i))
+      }
+    }
+    
+    let pos = 0
+    
+    // RIFF identifier
+    writeString(pos, 'RIFF'); pos += 4
+    // File length minus RIFF identifier length and file description length
+    view.setUint32(pos, length - 8, true); pos += 4
+    // RIFF type
+    writeString(pos, 'WAVE'); pos += 4
+    // Format chunk identifier
+    writeString(pos, 'fmt '); pos += 4
+    // Format chunk length
+    view.setUint32(pos, 16, true); pos += 4
+    // Sample format (raw)
+    view.setUint16(pos, 1, true); pos += 2
+    // Channel count
+    view.setUint16(pos, numberOfChannels, true); pos += 2
+    // Sample rate
+    view.setUint32(pos, sampleRate, true); pos += 4
+    // Byte rate (sample rate * block align)
+    view.setUint32(pos, sampleRate * numberOfChannels * 2, true); pos += 4
+    // Block align (channel count * bytes per sample)
+    view.setUint16(pos, numberOfChannels * 2, true); pos += 2
+    // Bits per sample
+    view.setUint16(pos, 16, true); pos += 2
+    // Data chunk identifier
+    writeString(pos, 'data'); pos += 4
+    // Data chunk length
+    view.setUint32(pos, audioBuffer.length * numberOfChannels * 2, true); pos += 4
+    
+    // Write the PCM samples - interleaved format
+    for (let i = 0; i < audioBuffer.length; i++) {
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]))
+        const int16Sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF
+        view.setInt16(pos, int16Sample, true)
+        pos += 2
+      }
+    }
+    
+    return new Blob([buffer], { type: 'audio/wav' })
   }
 
   return (

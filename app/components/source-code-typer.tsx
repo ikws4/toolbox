@@ -113,7 +113,7 @@ export default function SourceCodeTyper() {
           newIndex++;
         }
 
-        let current = Math.min(newIndex, sourceCode.length);
+        const current = Math.min(newIndex, sourceCode.length);
         setDisplayedCode(sourceCode.slice(0, current));
         scrollToBottom();
         currentIndexRef.current = current;

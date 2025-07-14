@@ -239,7 +239,7 @@ export default function ShareChannel() {
         console.error("Peer error:", err)
         
         // Check if this is a specific type of connection error
-        let errorMessage = handlePeerConnectionError(err);
+        const errorMessage = handlePeerConnectionError(err);
         
         // If the peer couldn't connect, ensure we reset the state
         if (err.type === 'peer-unavailable' || err.type === 'unavailable-id') {
