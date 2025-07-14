@@ -10,10 +10,11 @@ import ImageSplitTool from './components/image-split-tool'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, Menu, X, 
-  Code, Github, FileTerminal, ImageIcon, FileBadge, FileJson, Terminal, Share2, Loader2 } from "lucide-react"
+  Code, Github, FileTerminal, ImageIcon, FileBadge, FileJson, Terminal, Share2, Loader2, Music } from "lucide-react"
 import JsonViewer from './components/json-viewer'
 import SourceCodeTyper from './components/source-code-typer'
 import ShareChannel from './components/share-channel/share-channel'
+import SoundCreator from './components/sound-creator'
 import { cn } from "@/lib/utils"
 import { useIsClient } from "@/lib/hooks"
 
@@ -67,6 +68,13 @@ const tools = [
 		description: "Create or join a channel to share messages, images, and files with peers over the local network", 
 		component: ShareChannel,
 		icon: Share2
+	},
+	{ 
+		id: "sound-creator", 
+		title: "Sound Creator", 
+		description: "Create and play sounds using Tone.js with a code editor", 
+		component: SoundCreator,
+		icon: Music
 	},
 ];
 
