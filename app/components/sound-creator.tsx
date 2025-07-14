@@ -288,18 +288,19 @@ export default function SoundCreator() {
     // Block align (channel count * bytes per sample)
     view.setUint16(pos, numberOfChannels * 2, true); pos += 2
     // Bits per sample
-    view.setUint16(pos, 16, true); pos += 4
+    view.setUint16(pos, 16, true); pos += 2
     // Data chunk identifier
     writeString(pos, 'data'); pos += 4
     // Data chunk length
     view.setUint32(pos, audioBuffer.length * numberOfChannels * 2, true); pos += 4
     
-    // Write the PCM samples
-    const offset = pos
+    // Write the PCM samples - interleaved format
     for (let i = 0; i < audioBuffer.length; i++) {
       for (let channel = 0; channel < numberOfChannels; channel++) {
         const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]))
-        view.setInt16(offset + (i * numberOfChannels + channel) * 2, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true)
+        const int16Sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF
+        view.setInt16(pos, int16Sample, true)
+        pos += 2
       }
     }
     
